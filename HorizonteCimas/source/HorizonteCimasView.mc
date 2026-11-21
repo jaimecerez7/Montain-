@@ -10,6 +10,7 @@ class HorizonteCimasView extends WatchUi.View {
     const FOV = 60.0;
     const VEXAG = 4.0;
     const MAX_LABELS = 4;
+    const HIDDEN_PENALTY_DEG = 4.0;   // una visible a <4° del centro gana a una oculta
 
     var model as PeakModel;
     var timer;
@@ -94,27 +95,39 @@ class HorizonteCimasView extends WatchUi.View {
         dc.drawText(cx, (h * 0.25).toNumber(), Graphics.FONT_XTINY, direction,
             Graphics.TEXT_JUSTIFY_CENTER);
 
-        var foot = model.altitudeOk ? "© OpenStreetMap" : "Sin altitud GPS";
+        var foot = "© OpenStreetMap";
         if (model.localData && model.fetching) {
             foot = "Actualizando cimas…";
         } else if (model.localData && model.status != null) {
             foot = model.status;
+        } else if (model.useCompass && !compassOk) {
+            foot = "Gira con ARRIBA/ABAJO";
+        } else if (model.lat != null && !model.fixOk) {
+            foot = "Posición aproximada";
+        } else if (!model.altitudeOk) {
+            foot = "Sin altitud GPS";
         }
         dc.drawText(cx, (h * 0.86).toNumber(), Graphics.FONT_XTINY,
             fitText(dc, foot, Graphics.FONT_XTINY, w * 0.61), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     function drawPeaks(dc, w, h, cx, hd, ppd, horizonY, fh) as Void {
+        // item: [desvío_horizontal, prioridad_etiqueta, fila_geom]
         var visible = [] as Array<Array>;
         var g = model.geom;
         var selected = null as Array or Null;
+        var bestScore = 0.0;
         for (var i = 0; i < g.size(); i++) {
             var dx = GeoMath.diff(g[i][0], hd);
             if (dx < -FOV / 2 || dx > FOV / 2) { continue; }
-            var item = [dx, g[i][1], g[i]];
+            var hidden = g[i][5];
+            // Las posibles ocultas pierden prioridad en etiquetas y selección.
+            var item = [dx, hidden ? g[i][1] - 100 : g[i][1], g[i]];
             visible.add(item);
-            if (selected == null || absf(dx) < absf(selected[0])) {
+            var score = absf(dx) + (hidden ? HIDDEN_PENALTY_DEG : 0.0);
+            if (selected == null || score < bestScore) {
                 selected = item;
+                bestScore = score;
             }
         }
         if (selected == null) {
@@ -131,9 +144,10 @@ class HorizonteCimasView extends WatchUi.View {
             var item = i < 0 ? selected : visible[i];
             if (i >= 0 && item == selected) { continue; }
             var x = cx + (item[0] * ppd).toNumber();
-            var markerY = clamp(horizonY - (item[1] * ppd * VEXAG).toNumber(),
+            var row = item[2];
+            var markerY = clamp(horizonY - (row[1] * ppd * VEXAG).toNumber(),
                 (h * 0.49).toNumber(), (h * 0.68).toNumber());
-            var name = fitText(dc, item[2][4], font, w * 0.25);
+            var name = fitText(dc, row[4], font, w * 0.25);
             var halfWidth = (dc.getTextWidthInPixels(name, font) + 1) / 2;
             var labelX = clamp(x, inset + halfWidth, w - inset - halfWidth);
             var free = true;
@@ -146,10 +160,20 @@ class HorizonteCimasView extends WatchUi.View {
             if (!free) { continue; }
             shown.add([labelX, halfWidth]);
             var isSelected = item == selected;
-            dc.setColor(isSelected ? Graphics.COLOR_YELLOW : Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            var lineColor = isSelected ? Graphics.COLOR_YELLOW
+                : (row[5] ? Graphics.COLOR_DK_GRAY : Graphics.COLOR_LT_GRAY);
+            dc.setColor(lineColor, Graphics.COLOR_TRANSPARENT);
             dc.drawLine(labelX, labelY + fh, x, markerY - 7);
-            dc.fillPolygon([[x, markerY - 6], [x - 5, markerY + 3], [x + 5, markerY + 3]]);
-            dc.setColor(isSelected ? Graphics.COLOR_YELLOW : Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            if (row[5]) {
+                // Contorno: cima que probablemente queda tras otra montaña.
+                dc.drawLine(x, markerY - 6, x - 5, markerY + 3);
+                dc.drawLine(x - 5, markerY + 3, x + 5, markerY + 3);
+                dc.drawLine(x + 5, markerY + 3, x, markerY - 6);
+            } else {
+                dc.fillPolygon([[x, markerY - 6], [x - 5, markerY + 3], [x + 5, markerY + 3]]);
+            }
+            dc.setColor(isSelected ? Graphics.COLOR_YELLOW
+                : (row[5] ? Graphics.COLOR_LT_GRAY : Graphics.COLOR_WHITE), Graphics.COLOR_TRANSPARENT);
             dc.drawText(labelX, labelY, Graphics.FONT_XTINY,
                 name, Graphics.TEXT_JUSTIFY_CENTER);
         }
@@ -163,8 +187,9 @@ class HorizonteCimasView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         var details = p[3].toNumber().toString() + " m  ·  "
             + fmtDist(p[2]) + "  ·  " + p[0].toNumber().toString() + "°";
-        dc.drawText(cx, infoY + dc.getFontHeight(Graphics.FONT_TINY),
-            Graphics.FONT_XTINY, details, Graphics.TEXT_JUSTIFY_CENTER);
+        if (p[5]) { details += "  ·  ¿oculta?"; }
+        dc.drawText(cx, infoY + dc.getFontHeight(Graphics.FONT_TINY), Graphics.FONT_XTINY,
+            fitText(dc, details, Graphics.FONT_XTINY, w * 0.80), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     function drawStatus(dc, cx, h, message) as Void {

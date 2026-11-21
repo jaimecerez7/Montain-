@@ -69,15 +69,36 @@ class ProjectTests(unittest.TestCase):
         source = (ROOT / "source/PeakModel.mc").read_text()
         self.assertIn("overpass-api.de/api/interpreter", source)
         self.assertIn("convert peak name=", source)
-        bands = re.findall(r"q \+= queryBand\((\w+), (\w+), (\d+), la, lo\)", source)
+        bands = re.findall(r"q \+= queryBand\((\w+), (\w+), scaled\((\d+)\), la, lo\)", source)
         self.assertEqual(len(bands), 4)
         self.assertEqual(bands[0][:2], ("0", "3000"))
         for previous, current in zip(bands, bands[1:]):
             self.assertEqual(previous[1], current[0])
         self.assertEqual(bands[-1][1], "FAR_RADIUS_M")
         self.assertEqual(sum(int(limit) for _, _, limit in bands), 120)
-        self.assertIn('data["elements"]', source)
+        self.assertIn('["elements"]', source)
         self.assertIn('Application.Storage.setValue("peakCache",', source)
+        endpoints = re.findall(r'"(https://[^"]+/api/interpreter)"', source)
+        self.assertGreaterEqual(len(endpoints), 2)
+        self.assertEqual(len(endpoints), len(set(endpoints)))
+        self.assertIn("https://overpass-api.de/api/interpreter", endpoints)
+
+    def test_occlusion_reference(self):
+        # Misma regla que PeakModel.markHidden: silueta = ángulo - desvío * 0,4
+        def hidden(target, blocker):
+            b1, a1, d1 = target
+            b2, a2, d2 = blocker
+            offset = abs(angle_diff(b2, b1))
+            return offset <= 10 and d2 + 300 < d1 and a2 - offset * 0.4 > a1 + 0.05
+        self.assertTrue(hidden((10, 1.0, 20000), (11, 5.0, 3000)))
+        self.assertFalse(hidden((40, 2.0, 25000), (11, 5.0, 3000)))
+        self.assertTrue(hidden((359.5, 0.5, 30000), (0.5, 3.0, 5000)))
+        self.assertFalse(hidden((11, 5.0, 3000), (10, 1.0, 20000)))
+
+    def test_tests_cover_new_logic(self):
+        tests = (ROOT / "source/PeakModelTests.mc").read_text()
+        for name in ["overpassScaling", "retryPolicy", "occlusionHint"]:
+            self.assertIn("function " + name, tests)
 
     def test_no_duplicate_product_ids(self):
         tree = ET.parse(ROOT / "manifest.xml")

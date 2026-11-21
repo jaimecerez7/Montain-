@@ -1,6 +1,6 @@
 # Tareas para Codex / agente de desarrollo
 
-Proyecto Garmin Connect IQ escrito en Monkey C. Partir de esta versión 0.2, no de la versión original.
+Proyecto Garmin Connect IQ escrito en Monkey C. Partir de esta versión 0.4, no de versiones anteriores.
 
 ## Prioridad 1: compilar de verdad
 
@@ -10,14 +10,20 @@ Proyecto Garmin Connect IQ escrito en Monkey C. Partir de esta versión 0.2, no 
 4. Comprobar Overpass QL con una posición real, que `convert peak` genera los tags `name`, `ele`, `la`, `lo`, que ambas consultas aparecen en `elements` y que se respetan los límites y condiciones del servidor.
 5. Medir consumo de memoria, tamaño máximo de respuesta BLE y consumo energético.
 
+Además, en 0.4:
+
+- Confirmar que `retryAction` devuelve símbolos comparables con `==` en el dispositivo y que `ds has :connectionAvailable` compila sin aviso.
+- Verificar en el simulador la cadena de servidores alternativos (forzar HTTP 406 o 429) y la reducción de cupos (forzar -402).
+- Comprobar que `markHidden` no dispara el watchdog con 100 cimas en `fr165`.
+- Calibrar `SLOPE_TAN` con vistas reales: Guadarrama desde Cercedilla y Oberland bernés desde Grindelwald.
+
 ## Prioridad 2: mejoras funcionales
 
 - Sustituir el filtro por cupos de Overpass por una estrategia que encuentre las cumbres más relevantes sin depender del orden arbitrario del servidor.
-- Añadir persistencia versionada y migración de caché cuando cambie su formato.
-- Mostrar si el rumbo es de brújula o manual; evitar confundirlo con el rumbo del desplazamiento GPS.
 - Medir y minimizar la latencia de la interfaz y las superposiciones de etiquetas en 390×390 y tamaños menores.
 - Evaluar si el tamaño máximo de caché debe ajustarse dinámicamente por dispositivo.
-- Añadir pruebas Monkey C en `Toybox.Test` cuando el SDK esté disponible.
+- Oclusión con modelo del terreno (por ejemplo, perfiles precalculados en el servidor) si la pista actual resulta insuficiente.
+- Soporte táctil (tocar una etiqueta para seleccionarla) en `fr165`/`venu`.
 
 ## Criterios de aceptación
 

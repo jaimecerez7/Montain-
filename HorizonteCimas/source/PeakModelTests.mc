@@ -46,3 +46,57 @@ function overpassBands(logger as Test.Logger) as Boolean {
     Test.assert(band.find("out tags 32;") != null);
     return true;
 }
+
+(:test)
+function overpassScaling(logger as Test.Logger) as Boolean {
+    var model = new PeakModel();
+    Test.assert(model.buildQuery("40.78500", "-4.00700").find("out tags 24;") != null);
+    model.limitDivisor = 2;
+    var q = model.buildQuery("40.78500", "-4.00700");
+    Test.assert(q.find("out tags 12;") != null);
+    Test.assert(q.find("out tags 18;") != null);
+    model.limitDivisor = 64;
+    Test.assert(model.scaled(24) == 1);
+    return true;
+}
+
+(:test)
+function retryPolicy(logger as Test.Logger) as Boolean {
+    var model = new PeakModel();
+    Test.assert(model.retryAction(406) == :mirror);
+    Test.assert(model.retryAction(429) == :mirror);
+    Test.assert(model.retryAction(-300) == :mirror);
+    Test.assert(model.retryAction(-104) == null);     // sin móvil: no cambiar de servidor
+    Test.assert(model.retryAction(-402) == :smaller);
+    model.endpointTries = model.endpoints.size() - 1;
+    Test.assert(model.retryAction(503) == null);      // ya se probaron todos
+    model.limitDivisor = 4;
+    Test.assert(model.retryAction(-403) == null);
+    Test.assert(model.errorMessage(-104).equals("Sin conexión con el móvil"));
+    Test.assert(model.errorMessage(404).find("404") != null);
+    return true;
+}
+
+(:test)
+function occlusionHint(logger as Test.Logger) as Boolean {
+    var model = new PeakModel();
+    // [rumbo, ángulo, distancia, elevación, nombre, oculta]
+    var g = [
+        [10.0, 1.0, 20000.0, 2500.0, "Lejana tapada", false],
+        [11.0, 5.0, 3000.0, 1800.0, "Cercana alta", false],
+        [40.0, 2.0, 25000.0, 2600.0, "Lejana libre", false],
+        [359.5, 0.5, 30000.0, 2400.0, "Tras el norte", false],
+        [0.5, 3.0, 5000.0, 1700.0, "Norte cercana", false]
+    ] as Array<Array>;
+    model.sortCandidates(g, true);
+    model.markHidden(g);
+    for (var i = 0; i < g.size(); i++) {
+        var name = g[i][4];
+        if (name.equals("Lejana tapada") || name.equals("Tras el norte")) {
+            Test.assert(g[i][5] == true);
+        } else {
+            Test.assert(g[i][5] == false);
+        }
+    }
+    return true;
+}

@@ -58,7 +58,12 @@ jobs:
           U=$(printf '%s' "$GARMIN_USERNAME" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           P=$(printf '%s' "$GARMIN_PASSWORD" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           echo "Usuario: ${#U} caracteres, contiene @: $(case "$U" in *@*) echo sí;; *) echo no;; esac). Contraseña: ${#P} caracteres."
-          GARMIN_USERNAME="$U" GARMIN_PASSWORD="$P" connect-iq-sdk-manager login
+          if ! GARMIN_USERNAME="$U" GARMIN_PASSWORD="$P" connect-iq-sdk-manager login -L debug > login.log 2>&1; then
+            # Mostrar el diagnóstico sin el usuario ni la contraseña.
+            U="$U" P="$P" python3 -c 'import os,sys; t=open("login.log").read(); [t:=t.replace(v,"[oculto]") for v in (os.environ["U"],os.environ["P"]) if v]; sys.stdout.write(t[-4000:])'
+            echo "::error::Garmin rechazó el inicio de sesión. Revisa usuario/contraseña y la verificación en dos pasos."
+            exit 1
+          fi
           connect-iq-sdk-manager sdk set '^9.0.0' || connect-iq-sdk-manager sdk set '^8.0.0'
           echo "$(connect-iq-sdk-manager sdk current-path --bin)" >> "$GITHUB_PATH"
           connect-iq-sdk-manager device download --manifest="$APP_DIR/manifest.xml"

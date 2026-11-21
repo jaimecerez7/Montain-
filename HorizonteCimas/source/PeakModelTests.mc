@@ -17,6 +17,9 @@ function peakValidation(logger as Test.Logger) as Boolean {
     Test.assert(peak != null && peak[3] == 1234.5);
     Test.assert(model.readPeak("Cumbre", "91", "-4.007", "1234") == null);
     Test.assert(model.readPeak("Cumbre", "40.785", "-4.007", "unknown 1234") == null);
+    Test.assert(model.parseNum("1234 m altitud") == null);
+    Test.assert(model.parseNum("1 234") == null);
+    Test.assert(model.parseNum("  -123,5 m  ") == -123.5);
     return true;
 }
 

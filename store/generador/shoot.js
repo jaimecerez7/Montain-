@@ -1,5 +1,6 @@
 const { chromium } = require('playwright');
 const path = require('path');
+const { readFile } = require('node:fs/promises');
 const out = process.argv[2];
 const scenes = {
   '1-brujula': { heading: 55, mode: 'BRÚJULA', peaks: [
@@ -22,9 +23,9 @@ const scenes = {
     {name:'Cerro Ventoso', b:12, ea:1.9, d:6800, ele:1797} ]},
 };
 (async () => {
-  const b = await chromium.launch();
+  const b = await chromium.launch({ executablePath: process.env.HORIZONTE_CHROMIUM });
   const p = await b.newPage({ viewport: { width: 390, height: 390 }, deviceScaleFactor: 1 });
-  await p.goto('file://' + path.resolve(__dirname, 'render.html'));
+  await p.setContent(await readFile(path.join(__dirname, 'render.html'), 'utf8'));
   for (const [name, s] of Object.entries(scenes)) {
     await p.evaluate(s => window.drawScene(s), s);
     await (await p.$('#c')).screenshot({ path: path.join(out, `captura-${name}.png`), omitBackground: true });

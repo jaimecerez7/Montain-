@@ -97,7 +97,6 @@ class PeakModel {
         if (peaks.size() > 0) {
             dataLat = la;
             dataLon = lo;
-            status = null;
         }
     }
 
@@ -135,7 +134,8 @@ class PeakModel {
         }
 
         var st = status;
-        if (localData && st != null && (st.equals(WAIT_FIX) || st.equals(OUT_OF_ZONE))) {
+        if (localData && !fetching && st != null
+            && (st.equals("Buscando señal GPS…") || st.equals(WAIT_FIX) || st.equals(OUT_OF_ZONE))) {
             status = null;   // avisos que ya no aplican al volver a la zona con datos
         }
         if (localData || fetching) { return; }
@@ -158,8 +158,8 @@ class PeakModel {
     }
 
     function forceFetch() as Void {
-        if (lat == null) {
-            status = "Primero espera al GPS";
+        if (!fixOk) {
+            status = WAIT_FIX;
             return;
         }
         if (!fetching) { fetch(); }
@@ -263,6 +263,14 @@ class PeakModel {
     }
 
     function onResponse(code as Number, data as Dictionary or String or Null) as Void {
+        if (lat != null && GeoMath.distance(lat, lon, requestLat, requestLon) > REFETCH_M) {
+            fetching = false;
+            status = localData ? null : OUT_OF_ZONE;
+            lastAttempt = null;
+            WatchUi.requestUpdate();
+            return;
+        }
+
         var valid = code == 200 && (data instanceof Dictionary)
             && ((data as Dictionary)["elements"] instanceof Array)
             && (data as Dictionary)["remark"] == null;
@@ -286,13 +294,6 @@ class PeakModel {
         }
         fetching = false;
         var elements = (data as Dictionary)["elements"] as Array;
-
-        if (lat != null && GeoMath.distance(lat, lon, requestLat, requestLon) > REFETCH_M) {
-            status = OUT_OF_ZONE;
-            lastAttempt = null;
-            WatchUi.requestUpdate();
-            return;
-        }
 
         var near = [] as Array<Array>;
         var far = [] as Array<Array>;
@@ -457,9 +458,19 @@ class PeakModel {
         var buf = "";
         var hasDigit = false;
         var hasPoint = false;
+        var suffix = false;
+        var hasUnit = false;
         for (var i = 0; i < chars.size(); i++) {
             var c = chars[i].toNumber();
-            if (c >= 48 && c <= 57) {
+            if (c == 32) {
+                if (buf.length() > 0 && !hasDigit) { return null; }
+                suffix = hasDigit;
+            } else if (c == 109 && hasDigit && !hasUnit) {
+                hasUnit = true;
+                suffix = true;
+            } else if (suffix) {
+                return null;
+            } else if (c >= 48 && c <= 57) {
                 buf += chars[i].toString();
                 hasDigit = true;
             } else if ((c == 46 || c == 44) && !hasPoint) {
@@ -467,13 +478,10 @@ class PeakModel {
                 hasPoint = true;
             } else if (c == 45 && buf.length() == 0) {
                 buf += "-";
-            } else if (hasDigit && (c == 32 || c == 109)) {
-                break;
-            } else if (c != 32 || hasPoint || buf.length() > 0) {
+            } else {
                 return null;
             }
         }
-        if (!hasDigit) { return null; }
-        return buf.toDouble();
+        return hasDigit ? buf.toDouble() : null;
     }
 }

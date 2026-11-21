@@ -10,16 +10,22 @@ import Toybox.WatchUi;
 class HorizonteCimasView extends WatchUi.View {
     const FOV = 60.0;
     const VEXAG = 4.0;
+    const SKY = 0x07131E;
+    const PANEL = 0x0D202A;
+    const GRID = 0x355367;
+    const MUTED = 0xA4BDCC;
+    const ICE = 0xD9EFF6;
+    const ACCENT = 0xFFD17A;
     const MAX_LABELS = 5;
     const HIDDEN_PENALTY_DEG = 4.0;
     const SLOPE_TAN = 0.4;             // misma pendiente que la pista de oclusión del modelo
     const TERRAIN_COLUMNS = 44;        // fillPolygon admite hasta 64 vértices
     // Capas de lejos a cerca: [distancia_mínima_m, relleno, cresta]
     const LAYERS = [
-        [20000, 0x16243A, 0x34507A],
-        [8000, 0x22395A, 0x5A84B8],
-        [0, 0x30507A, 0x9CC8F5]
-    ];   // una visible a <4° del centro gana a una oculta
+        [20000, 0x102633, 0x356074],
+        [8000, 0x173E4B, 0x528B9C],
+        [0, 0x225663, 0x80BBC7]
+    ];
 
     var model as PeakModel;
     var timer;
@@ -80,62 +86,69 @@ class HorizonteCimasView extends WatchUi.View {
         var hd = !model.useCompass || heading == null ? model.manualHeading : heading;
         drawnHeading = hd;
         var ppd = w * 0.74 / FOV;
-        var horizonY = (h * 0.63).toNumber();
         var fh = dc.getFontHeight(Graphics.FONT_XTINY);
-        selectedOccluded = false;
+        var titleHeight = dc.getFontHeight(Graphics.FONT_TINY);
+        var footY = (h * 0.93).toNumber() - fh;
+        var infoY = footY - fh - titleHeight - 6;
+        var horizonY = infoY - 8;
+        var tapeY = (h * 0.30).toNumber();
+        var firstLabelY = tapeY + 10;
+        var crestY = firstLabelY + fh * 2 + 10;
+        // Con fuentes grandes queda una fila y se conserva altura para las cimas.
+        var rowCount = crestY + 12 < horizonY ? 2 : 1;
+        if (rowCount == 1) { crestY -= fh + 3; }
 
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.setColor(SKY, SKY);
         dc.clear();
-        drawCompassTape(dc, w, h, hd, ppd, fh);
+        var mode = model.useCompass ? (compassOk ? "BRÚJULA" : "SIN BRÚJULA") : "MANUAL";
+        var headingText = model.useCompass && !compassOk ? "—" : hd.toNumber().format("%03d") + "°";
+        var headingY = tapeY - fh - titleHeight - 10;
+        dc.setColor(ICE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, headingY, Graphics.FONT_TINY, headingText, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, headingY + titleHeight, Graphics.FONT_XTINY, mode, Graphics.TEXT_JUSTIFY_CENTER);
+        drawCompassTape(dc, w, h, hd, tapeY, ppd, fh);
 
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine((w * 0.10).toNumber(), horizonY, (w * 0.90).toNumber(), horizonY);
+        dc.setColor(GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(w / 12, horizonY, w - w / 12, horizonY);
+        dc.setColor(PANEL, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(0, infoY - 3, w, h - infoY + 3);
+        dc.setColor(GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(w / 7, infoY - 3, w - w / 7, infoY - 3);
 
-        if (model.lat == null) {
-            drawStatus(dc, cx, h, model.status);
-        } else if (!model.localData) {
-            drawStatus(dc, cx, h, model.fetching ? "Descargando cimas…" : (model.status == null ? "Cimas fuera de zona" : model.status));
+        if (model.lat == null || !model.localData) {
+            var message = model.fetching ? "Descargando cimas…" : model.status;
+            drawStatus(dc, cx, h, message == null ? "Cimas fuera de zona" : message);
         } else if (model.geom.size() == 0) {
             drawStatus(dc, cx, h, "Sin cimas en el alcance");
         } else {
-            drawPeaks(dc, w, h, cx, hd, ppd, horizonY, fh);
+            drawPeaks(dc, w, h, cx, hd, ppd, horizonY, crestY, infoY, firstLabelY, rowCount, fh);
         }
-        // Mira central por encima de la silueta.
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(cx, (h * 0.28).toNumber(), cx, (h * 0.33).toNumber());
-
-        var mode = model.useCompass ? (compassOk ? "BRÚJULA" : "SIN BRÚJULA") : "MANUAL";
-        var direction = hd.toNumber().toString() + "°  " + mode;
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, (h * 0.25).toNumber(), Graphics.FONT_XTINY, direction,
-            Graphics.TEXT_JUSTIFY_CENTER);
 
         var foot = "© OpenStreetMap";
-        if (selectedOccluded) {
-            foot = "Quizá oculta";
-        }
         if (model.localData && model.fetching) {
             foot = "Actualizando cimas…";
         } else if (model.localData && model.status != null) {
             foot = model.status;
+        } else if (selectedOccluded) {
+            foot = "Posible oclusión";
         } else if (model.useCompass && !compassOk) {
-            foot = "Gira con ARRIBA/ABAJO";
+            foot = "Gira con ↑ / ↓";
         } else if (model.lat != null && !model.fixOk) {
             foot = "Posición aproximada";
-        } else if (!model.altitudeOk) {
+        } else if (model.localData && !model.altitudeOk) {
             foot = "Sin altitud GPS";
         }
-        var footY = (h * 0.845).toNumber();
         var footWidth = usableWidth(w, h, footY, fh);
         if (foot.equals("© OpenStreetMap") && dc.getTextWidthInPixels(foot, Graphics.FONT_XTINY) > footWidth) {
             foot = "© OSM";
         }
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(MUTED, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, footY, Graphics.FONT_XTINY, fitText(dc, foot, Graphics.FONT_XTINY, footWidth),
             Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    function drawPeaks(dc, w, h, cx, hd, ppd, horizonY, fh) as Void {
+    function drawPeaks(dc, w, h, cx, hd, ppd, horizonY, crestY, infoY, firstLabelY, rowCount, fh) as Void {
         // item: [desvío_horizontal, prioridad_etiqueta, fila_geom]
         var visible = [] as Array<Array>;
         var terrain = [] as Array<Array>;     // [desvío, ángulo, distancia]
@@ -158,7 +171,7 @@ class HorizonteCimasView extends WatchUi.View {
             }
         }
         if (model.altitudeOk) {
-            drawTerrain(dc, w, h, cx, ppd, horizonY, terrain);
+            drawTerrain(dc, w, cx, ppd, horizonY, crestY, terrain);
         }
         if (selected == null) {
             drawStatus(dc, cx, h, "Sin cimas hacia aquí");
@@ -168,20 +181,19 @@ class HorizonteCimasView extends WatchUi.View {
         sortByElevation(visible);
         var shown = [] as Array<Array>;
         var font = Graphics.FONT_XTINY;
-        var inset = (w * 0.12).toNumber();
-        // Dos filas de etiquetas: si una choca en la primera, se prueba la segunda.
-        var rowY = [(h * 0.34).toNumber(), (h * 0.34).toNumber() + fh + 2];
         for (var i = -1; i < visible.size() && shown.size() < MAX_LABELS; i++) {
             var item = i < 0 ? selected : visible[i];
             if (i >= 0 && item == selected) { continue; }
             var x = cx + (item[0] * ppd).toNumber();
             var row = item[2];
-            var markerY = angleToY(row[1], ppd, h, horizonY);
+            var markerY = angleToY(row[1], ppd, crestY, horizonY);
             var name = fitText(dc, row[4], font, w * 0.30);
             var halfWidth = (dc.getTextWidthInPixels(name, font) + 1) / 2;
-            var labelX = clamp(x, inset + halfWidth, w - inset - halfWidth);
+            var labelX = cx;
             var labelRow = -1;
-            for (var r = 0; r < 2 && labelRow < 0; r++) {
+            for (var r = 0; r < rowCount && labelRow < 0; r++) {
+                var halfRow = (usableWidth(w, h, firstLabelY + r * (fh + 3), fh) / 2).toNumber();
+                labelX = clamp(x, cx - halfRow + halfWidth, cx + halfRow - halfWidth);
                 var free = true;
                 for (var j = 0; j < shown.size(); j++) {
                     if (shown[j][2] == r && absf(labelX - shown[j][0]) < halfWidth + shown[j][1] + 6) {
@@ -192,11 +204,11 @@ class HorizonteCimasView extends WatchUi.View {
                 if (free) { labelRow = r; }
             }
             if (labelRow < 0) { continue; }
-            shown.add([labelX, halfWidth, labelRow]);
-            var labelY = rowY[labelRow];
+            var labelY = firstLabelY + labelRow * (fh + 3);
             var isSelected = item == selected;
-            var lineColor = isSelected ? Graphics.COLOR_YELLOW
-                : (row[5] ? Graphics.COLOR_DK_GRAY : Graphics.COLOR_LT_GRAY);
+            var textColor = isSelected ? ACCENT : (row[5] ? MUTED : ICE);
+            shown.add([labelX, halfWidth, labelRow, name, textColor]);
+            var lineColor = isSelected ? ACCENT : (row[5] ? GRID : MUTED);
             dc.setColor(lineColor, Graphics.COLOR_TRANSPARENT);
             dc.drawLine(labelX, labelY + fh, x, markerY - 7);
             if (row[5]) {
@@ -207,19 +219,23 @@ class HorizonteCimasView extends WatchUi.View {
             } else {
                 dc.fillPolygon([[x, markerY - 6], [x - 5, markerY + 3], [x + 5, markerY + 3]]);
             }
-            dc.setColor(isSelected ? Graphics.COLOR_YELLOW
-                : (row[5] ? Graphics.COLOR_LT_GRAY : Graphics.COLOR_WHITE), Graphics.COLOR_TRANSPARENT);
-            dc.drawText(labelX, labelY, Graphics.FONT_XTINY,
-                name, Graphics.TEXT_JUSTIFY_CENTER);
+        }
+        // Pintar las etiquetas al final mantiene el texto limpio sobre las guías.
+        for (var i = 0; i < shown.size(); i++) {
+            var label = shown[i];
+            var labelY = firstLabelY + label[2] * (fh + 3);
+            dc.setColor(SKY, Graphics.COLOR_TRANSPARENT);
+            dc.fillRectangle(label[0] - label[1] - 2, labelY, label[1] * 2 + 4, fh);
+            dc.setColor(label[4], Graphics.COLOR_TRANSPARENT);
+            dc.drawText(label[0], labelY, font, label[3], Graphics.TEXT_JUSTIFY_CENTER);
         }
 
         // Ficha inferior fija: nombre y, debajo, altitud y distancia con iconos.
         var p = selected[2];
         selectedOccluded = p[5];
-        var infoY = (h * 0.675).toNumber();
         var tf = Graphics.FONT_TINY;
         var th = dc.getFontHeight(tf);
-        dc.setColor(p[5] ? Graphics.COLOR_LT_GRAY : Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(p[5] ? MUTED : ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, infoY, tf, fitText(dc, p[4], tf, usableWidth(w, h, infoY, th)),
             Graphics.TEXT_JUSTIFY_CENTER);
         drawStats(dc, w, h, cx, infoY + th, p[3].toNumber().toString() + " m", fmtDist(p[2]));
@@ -227,7 +243,7 @@ class HorizonteCimasView extends WatchUi.View {
 
     // "▲ 2138 m   ↔ 4,2 km": iconos dibujados (no dependen de la fuente del reloj).
     function drawStats(dc, w, h, cx, y, altText, distText) as Void {
-        var f = Graphics.FONT_TINY;
+        var f = Graphics.FONT_XTINY;
         var th = dc.getFontHeight(f);
         var icon = (th * 0.45).toNumber();
         var gap = (icon * 0.5).toNumber();
@@ -235,48 +251,46 @@ class HorizonteCimasView extends WatchUi.View {
         var dw = dc.getTextWidthInPixels(distText, f);
         var arrow = (icon * 1.6).toNumber();
         var total = icon + gap + aw + icon * 2 + arrow + gap + dw;
-        if (total > usableWidth(w, h, y, th)) {
-            f = Graphics.FONT_XTINY;
-            aw = dc.getTextWidthInPixels(altText, f);
-            dw = dc.getTextWidthInPixels(distText, f);
-            total = icon + gap + aw + icon * 2 + arrow + gap + dw;
+        var width = usableWidth(w, h, y, th);
+        if (total > width) {
+            dc.setColor(ICE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, y, f, fitText(dc, altText + "  ·  " + distText, f, width),
+                Graphics.TEXT_JUSTIFY_CENTER);
+            return;
         }
         var x = cx - total / 2;
         var midY = y + th / 2;
         var half = icon / 2;
         // Altitud: pequeño pico
-        dc.setColor(0x9CC8F5, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(0x80BBC7, Graphics.COLOR_TRANSPARENT);
         dc.fillPolygon([[x, midY + half], [x + half, midY - half], [x + icon, midY + half]]);
         x += icon + gap;
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(ICE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(x, y + (th - dc.getFontHeight(f)) / 2, f, altText, Graphics.TEXT_JUSTIFY_LEFT);
         x += aw + icon * 2;
         // Distancia: flecha doble
-        dc.setColor(0x9CC8F5, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(0x80BBC7, Graphics.COLOR_TRANSPARENT);
         dc.fillRectangle(x + half, midY - 1, arrow - icon, 3);
         dc.fillPolygon([[x, midY], [x + half, midY - half], [x + half, midY + half]]);
         dc.fillPolygon([[x + arrow, midY], [x + arrow - half, midY - half], [x + arrow - half, midY + half]]);
         x += arrow + gap;
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(ICE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(x, y + (th - dc.getFontHeight(f)) / 2, f, distText, Graphics.TEXT_JUSTIFY_LEFT);
     }
 
     // Ángulo de elevación → coordenada Y. Lineal cerca del horizonte y comprimido
     // suavemente hacia los límites, para que las cimas altas no queden aplanadas.
-    function angleToY(ea, ppd, h, horizonY) as Number {
+    function angleToY(ea, ppd, crestY, horizonY) as Number {
         var px = ea * ppd * VEXAG;
-        if (px >= 0) {
-            var up = horizonY - (h * 0.49);
-            return (horizonY - up * px / Math.sqrt(up * up + px * px)).toNumber();
-        }
-        var down = (h * 0.665) - horizonY;
-        return (horizonY + down * (-px) / Math.sqrt(down * down + px * px)).toNumber();
+        var range = px >= 0 ? horizonY - crestY : 3;
+        if (range < 1) { range = 1; }
+        return (horizonY - range * px / Math.sqrt(range * range + px * px)).toNumber();
     }
 
     // Silueta aproximada: cada cima es un cono (ladera SLOPE_TAN) y cada capa de
     // distancia se rellena con un tono distinto, de lejos (oscuro) a cerca (claro).
-    function drawTerrain(dc, w, h, cx, ppd, horizonY, terrain as Array<Array>) as Void {
-        var base = (h * 0.665).toNumber();
+    function drawTerrain(dc, w, cx, ppd, horizonY, crestY, terrain as Array<Array>) as Void {
+        var base = horizonY + 3;
         var x0 = (w * 0.05).toNumber();
         var step = (w - 2 * x0) / (TERRAIN_COLUMNS - 1.0);
         for (var L = 0; L < LAYERS.size(); L++) {
@@ -300,7 +314,7 @@ class HorizonteCimasView extends WatchUi.View {
                     var e = items[i][1] - off * SLOPE_TAN;
                     if (e > best) { best = e; }
                 }
-                var y = best <= -89.0 ? base : angleToY(best, ppd, h, horizonY);
+                var y = best <= -89.0 ? base : angleToY(best, ppd, crestY, horizonY);
                 if (y > base) { y = base; }
                 if (y < base) { any = true; }
                 pts.add([x, y]);
@@ -322,29 +336,34 @@ class HorizonteCimasView extends WatchUi.View {
     }
 
     function drawStatus(dc, cx, h, message) as Void {
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, (h * 0.48).toNumber(), Graphics.FONT_XTINY,
-            fitText(dc, message, Graphics.FONT_XTINY, dc.getWidth() * 0.83), Graphics.TEXT_JUSTIFY_CENTER);
+        var font = Graphics.FONT_XTINY;
+        var y = (h * 0.47).toNumber();
+        dc.setColor(ICE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, font, fitText(dc, message, font,
+            usableWidth(dc.getWidth(), h, y, dc.getFontHeight(font))), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    function drawCompassTape(dc, w, h, hd, ppd, fh) as Void {
-        var y = (h * 0.21).toNumber();
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        var start = Math.ceil((hd - FOV / 2) / 10) * 10;
+    function drawCompassTape(dc, w, h, hd, y, ppd, fh) as Void {
+        var cx = w / 2;
+        var start = Math.ceil((hd - FOV / 2) / 5) * 5;
         var end = hd + FOV / 2;
-        for (var a = start; a <= end; a += 10) {
-            var x = w / 2 + (GeoMath.diff(a, hd) * ppd).toNumber();
-            var direction = GeoMath.norm360(a).toNumber();
-            if (direction % 90 == 0 && x >= w * 0.17 && x <= w * 0.83) {
-                dc.drawLine(x, y - 8, x, y);
-                dc.drawText(x, y - 8 - fh, Graphics.FONT_XTINY,
-                    cardinal(direction), Graphics.TEXT_JUSTIFY_CENTER);
-            } else {
-                dc.drawLine(x, y - 4, x, y);
+        var edge = (FOV / 2 * ppd).toNumber();
+        dc.setColor(GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(cx - edge, y, cx + edge, y);
+        for (var a = start; a <= end; a += 5) {
+            var x = cx + (GeoMath.diff(a, hd) * ppd).toNumber();
+            var degrees = GeoMath.norm360(a).toNumber();
+            var major = degrees % 45 == 0;
+            dc.setColor(major ? MUTED : GRID, Graphics.COLOR_TRANSPARENT);
+            dc.drawLine(x, y - (major ? 8 : 4), x, y);
+            var labelY = y - 8 - fh;
+            if (major && absf(x - cx) > w * 0.20
+                && absf(x - cx) + fh < usableWidth(w, h, labelY, fh) / 2) {
+                dc.drawText(x, labelY, Graphics.FONT_XTINY, cardinal(degrees), Graphics.TEXT_JUSTIFY_CENTER);
             }
         }
-        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-        dc.fillPolygon([[w / 2, y + 1], [w / 2 - 5, y + 8], [w / 2 + 5, y + 8]]);
+        dc.setColor(ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon([[cx, y + 6], [cx - 4, y - 1], [cx + 4, y - 1]]);
     }
 
     function cardinal(degrees) {
@@ -353,7 +372,11 @@ class HorizonteCimasView extends WatchUi.View {
     }
 
     function fmtDist(meters) {
-        if (meters < 10000) { return (meters / 1000.0).format("%.1f") + " km"; }
+        if (meters < 1000) { return meters.toNumber().toString() + " m"; }
+        if (meters < 10000) {
+            var tenths = Math.round(meters / 100.0).toNumber();
+            return (tenths / 10).toString() + "," + (tenths % 10).toString() + " km";
+        }
         return (meters / 1000.0).toNumber().toString() + " km";
     }
 

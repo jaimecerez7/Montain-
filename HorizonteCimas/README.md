@@ -1,4 +1,9 @@
-# Horizonte Cimas 0.4 — Garmin Connect IQ (Monkey C)
+# Horizonte Cimas 0.4 revisada — Garmin Connect IQ (Monkey C)
+
+La revisión cambia la presentación del panorama: rumbo y modo en líneas separadas, silueta por capas, etiquetas adaptadas al ancho circular y una ficha inferior con la cima seleccionada. Las distancias inferiores a 1 km se muestran en metros. Con brújula activa y sin lectura, el indicador de rumbo muestra «—».
+
+La descarga manual espera un fijo GPS. Si una respuesta llega después de salir del radio de la consulta, se descarta antes de procesarla o probar otro servidor. El arranque conserva el aviso de GPS hasta tener una posición útil, incluso cuando hay una caché guardada.
+
 
 Apunta el reloj hacia el horizonte para identificar cumbres: **nombre, elevación, distancia y rumbo**. El proyecto incluye soporte declarado para **Forerunner 165 y 165 Music**.
 
@@ -51,7 +56,7 @@ monkeyc -f monkey.jungle -o HorizonteCimas-fr165.prg -y developer_key.der -d fr1
 
 | Control | Acción |
 |---|---|
-| START / SELECT | Forzar descarga de cimas (necesita red) |
+| START / SELECT | Forzar descarga de cimas (necesita fijo GPS y red) |
 | ARRIBA / ABAJO | Girar orientación manual ±10° |
 | Menú (mantener ARRIBA, si el reloj expone esa acción) | Reactivar brújula |
 | BACK | Salir |
@@ -82,7 +87,7 @@ connectiq
 monkeydo /tmp/HorizonteCimas-tests.prg fr165 -t
 ```
 
-**0.4 no se ha compilado**: en el entorno de esta revisión no había acceso a la descarga del SDK de Garmin. Hay que compilar y ejecutar las pruebas Monkey C antes de instalarla. En la revisión 0.3 finalizaron la compilación genérica y la compilación genérica con `-t`. El servicio de descarga de perfiles respondió HTTP 401 sin cuenta Garmin. Las compilaciones con `-d fr165` y `-d fr165m` quedaron bloqueadas por la falta de esos perfiles. También quedan por verificar la ejecución en simulador y reloj, la descarga mediante Garmin Connect, la persistencia tras reinicio, la latencia, la memoria, el límite BLE y el consumo.
+**La revisión 0.4 está pendiente de compilación**. Este entorno no dispone del SDK de Garmin ni pudo acceder a su descarga. Hay que compilar y ejecutar las pruebas Monkey C antes de instalarla. En la revisión 0.3 finalizaron la compilación genérica y la compilación genérica con `-t`. El servicio de descarga de perfiles respondió HTTP 401 sin cuenta Garmin. Las compilaciones con `-d fr165` y `-d fr165m` quedaron bloqueadas por la falta de esos perfiles. También quedan por verificar la ejecución en simulador y reloj, la descarga mediante Garmin Connect, la persistencia tras reinicio, la latencia, la memoria, el límite BLE y el consumo.
 
 ### Prueba de Overpass
 

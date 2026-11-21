@@ -3,8 +3,8 @@
 <body><canvas id="c"></canvas>
 <script>
 // Réplica del dibujo de HorizonteCimasView.mc (mismas proporciones y colores Garmin).
-const C = {BLACK:'#000', WHITE:'#FFFFFF', LT_GRAY:'#AAAAAA', DK_GRAY:'#555555', YELLOW:'#FFAA00', RED:'#FF0000'};
-const SLOPE=0.4, COLS=44, LAYERS=[[20000,'#16243A','#34507A'],[8000,'#22395A','#5A84B8'],[0,'#30507A','#9CC8F5']];
+const C = {sky:'#07131E', panel:'#0D202A', ice:'#D9EFF6', muted:'#A4BDCC', grid:'#355367', accent:'#FFD17A'};
+const SLOPE=0.4, COLS=44, LAYERS=[[20000,'#102633','#356074'],[8000,'#173E4B','#528B9C'],[0,'#225663','#80BBC7']];
 const FOV = 60, VEXAG = 4, MAX_LABELS = 5, HIDDEN_PENALTY = 4;
 const XTINY = '22px "Liberation Sans", sans-serif', TINY = 'bold 28px "Liberation Sans", sans-serif';
 const FH_XTINY = 25, FH_TINY = 31;
@@ -24,24 +24,46 @@ function drawScene(s){
   const tri = (pts,col,fill) => { dc.beginPath(); dc.moveTo(...pts[0]); dc.lineTo(...pts[1]); dc.lineTo(...pts[2]); dc.closePath();
     if (fill){ dc.fillStyle=col; dc.fill(); } else { dc.strokeStyle=col; dc.lineWidth=2; dc.stroke(); } };
 
-  const usable = (top) => { const r=w/2, a=top-h/2, b=top+FH_XTINY-h/2, dy=Math.abs(a)>Math.abs(b)?a:b, q=r*r-dy*dy; return q<=0?0:2*Math.sqrt(q)*0.9; };
-  const angleToY = (ea) => { const px=ea*ppd*VEXAG; if (px>=0){ const up=horizonY-h*0.49; return Math.trunc(horizonY-up*px/Math.sqrt(up*up+px*px)); } const dn=h*0.665-horizonY; return Math.trunc(horizonY+dn*(-px)/Math.sqrt(dn*dn+px*px)); };
-  const cx = w/2, hd = s.heading, ppd = w*0.74/FOV, horizonY = Math.round(h*0.63);
-  dc.fillStyle = C.BLACK; dc.fillRect(0,0,w,h);
+  const usable = (top, height = FH_XTINY) => {
+    const r = w/2, dy = Math.max(Math.abs(top-h/2), Math.abs(top+height-h/2));
+    return 1.8 * Math.sqrt(Math.max(0, r*r-dy*dy));
+  };
+  const cx = w/2, hd = s.heading, ppd = w*0.74/FOV;
+  const footY = Math.trunc(h*0.93)-FH_XTINY;
+  const infoY = footY-FH_XTINY-FH_TINY-6, horizonY = infoY-8;
+  const tapeY = Math.trunc(h*0.30), firstLabelY = tapeY+10;
+  let crestY = firstLabelY+FH_XTINY*2+10;
+  const rowCount = crestY+12 < horizonY ? 2 : 1;
+  if (rowCount===1) crestY-=FH_XTINY+3;
+  const angleToY = (ea) => {
+    const px = ea*ppd*VEXAG, range = Math.max(1, px>=0 ? horizonY-crestY : 3);
+    return Math.trunc(horizonY-range*px/Math.sqrt(range*range+px*px));
+  };
 
-  // Cinta de rumbo
-  const y = Math.round(h*0.21);
-  for (let a = Math.ceil((hd-FOV/2)/10)*10; a <= hd+FOV/2; a += 10){
-    const x = w/2 + Math.trunc(diff(a,hd)*ppd); const dir = Math.trunc(norm(a));
-    if (dir%90==0 && x>=w*0.17 && x<=w*0.83){ line(x,y-8,x,y,C.LT_GRAY); text(x,y-8-FH_XTINY,XTINY,C.LT_GRAY,['N','NE','E','SE','S','SO','O','NO'][Math.trunc(dir/45)%8]); }
-    else line(x,y-4,x,y,C.LT_GRAY);
+  dc.fillStyle = C.sky; dc.fillRect(0,0,w,h);
+  const headingY = tapeY-FH_XTINY-FH_TINY-10;
+  text(cx,headingY,TINY,C.ice,
+    s.mode==='SIN BRÚJULA' ? '—' : String(Math.trunc(hd)).padStart(3,'0')+'°');
+  text(cx,headingY+FH_TINY,XTINY,C.muted,s.mode);
+  const edge = Math.trunc(FOV/2*ppd);
+  line(cx-edge,tapeY,cx+edge,tapeY,C.grid);
+  for (let a=Math.ceil((hd-FOV/2)/5)*5; a<=hd+FOV/2; a+=5) {
+    const x=cx+Math.trunc(diff(a,hd)*ppd), dir=Math.trunc(norm(a)), major=dir%45===0;
+    line(x,tapeY-(major?8:4),x,tapeY,major?C.muted:C.grid);
+    const labelY=tapeY-8-FH_XTINY;
+    if (major && Math.abs(x-cx)>w*0.20 && Math.abs(x-cx)+FH_XTINY<usable(labelY)/2) {
+      text(x,labelY,XTINY,C.muted,['N','NE','E','SE','S','SO','O','NO'][dir/45]);
+    }
   }
-  tri([[w/2,y+1],[w/2-5,y+8],[w/2+5,y+8]],C.RED,true);
+  tri([[cx,tapeY+6],[cx-4,tapeY-1],[cx+4,tapeY-1]],C.accent,true);
+  line(w/12,horizonY,w-w/12,horizonY,C.grid);
+  dc.fillStyle=C.panel; dc.fillRect(0,infoY-3,w,h-infoY+3);
+  line(w/7,infoY-3,w-w/7,infoY-3,C.grid);
 
-  line(w*0.10,horizonY,w*0.90,horizonY,C.DK_GRAY);
-
-  if (s.status){
-    text(cx,Math.round(h*0.48),XTINY,C.LT_GRAY,fit(s.status,XTINY,w*0.83));
+  let selectedOccluded = false;
+  if (s.status || !s.peaks?.some(p=>Math.abs(diff(p.b,hd))<=FOV/2)){
+    const y = Math.trunc(h*0.47);
+    text(cx,y,XTINY,C.ice,fit(s.status || 'Sin cimas hacia aquí',XTINY,usable(y)));
   } else {
     const visible=[], terrain=[]; let sel=null, best=0;
     for (const p of s.peaks){
@@ -51,7 +73,7 @@ function drawScene(s){
       if (sel==null||score<best){ sel=item; best=score; }
     }
     // Silueta por capas
-    const base=Math.trunc(h*0.665), x0=Math.trunc(w*0.05), step=(w-2*x0)/(COLS-1);
+    const base=horizonY+3, x0=Math.trunc(w*0.05), step=(w-2*x0)/(COLS-1);
     LAYERS.forEach((Lr,L)=>{ const minD=Lr[0], maxD=L==0?1e9:LAYERS[L-1][0];
       const items=terrain.filter(t=>t[2]>minD&&t[2]<=maxD); if(!items.length) return;
       const pts=[]; let any=false;
@@ -63,38 +85,56 @@ function drawScene(s){
       for(let c=1;c<pts.length;c++) if(pts[c-1][1]<base||pts[c][1]<base) line(pts[c-1][0],pts[c-1][1],pts[c][0],pts[c][1],Lr[2]);
     });
     visible.sort((a,b)=>b[1]-a[1]);
-    const shown=[]; const inset=Math.trunc(w*0.12); const rowY=[Math.round(h*0.34), Math.round(h*0.34)+FH_XTINY+2];
+    const shown=[];
     for (let i=-1;i<visible.length && shown.length<MAX_LABELS;i++){
-      const item = i<0? sel : visible[i]; if (i>=0 && item===sel) continue;
-      const row=item[2]; const x = cx + Math.trunc(item[0]*ppd);
-      const markerY = angleToY(row.ea);
-      const name = fit(row.name,XTINY,w*0.30); const half=(tw(name,XTINY)+1)/2;
-      const lx = clamp(x, inset+half, w-inset-half);
-      let lr=-1; for (let r=0;r<2&&lr<0;r++){ if(!shown.some(s2=>s2[2]==r && Math.abs(lx-s2[0]) < half+s2[1]+6)) lr=r; }
-      if (lr<0) continue; shown.push([lx,half,lr]); const labelY=rowY[lr];
-      const isSel = item===sel;
-      const lc = isSel? C.YELLOW : (row.occ? C.DK_GRAY : C.LT_GRAY);
-      line(lx,labelY+FH_XTINY,x,markerY-7,lc);
+      const item=i<0?sel:visible[i]; if (i>=0 && item===sel) continue;
+      const row=item[2], x=cx+Math.trunc(item[0]*ppd), markerY=angleToY(row.ea);
+      const name=fit(row.name,XTINY,w*0.30), half=(tw(name,XTINY)+1)/2;
+      let label;
+      for (let r=0;r<rowCount;r++) {
+        const y=firstLabelY+r*(FH_XTINY+3), halfRow=Math.trunc(usable(y)/2);
+        const lx=clamp(x,cx-halfRow+half,cx+halfRow-half);
+        if (shown.some(other=>other.y===y && Math.abs(lx-other.x)<half+other.half+6)) continue;
+        label={x:lx,y,half,name,color:item===sel?C.accent:(row.occ?C.muted:C.ice)};
+        break;
+      }
+      if (!label) continue;
+      shown.push(label);
+      const lc=item===sel?C.accent:(row.occ?C.grid:C.muted);
+      line(label.x,label.y+FH_XTINY,x,markerY-7,lc);
       tri([[x,markerY-6],[x-5,markerY+3],[x+5,markerY+3]],lc,!row.occ);
-      text(lx,labelY,XTINY,isSel?C.YELLOW:(row.occ?C.LT_GRAY:C.WHITE),name);
     }
-    const p=sel[2], infoY=Math.round(h*0.675); s.occSel=!!p.occ;
-    text(cx,infoY,TINY,p.occ?C.LT_GRAY:C.YELLOW,fit(p.name,TINY,usable(infoY)));
-    const dist = p.d<10000? (p.d/1000).toFixed(1)+' km' : Math.trunc(p.d/1000)+' km';
-    const alt = Math.trunc(p.ele)+' m', y2=infoY+FH_TINY, icon=Math.trunc(FH_TINY*0.45), gap=Math.trunc(icon*0.5), half=icon/2;
-    let f=TINY; let aw=tw(alt,f), dw=tw(dist,f); const arrow=Math.trunc(icon*1.6); let total=icon+gap+aw+icon*2+arrow+gap+dw;
-    if (total>usable(y2)){ f=XTINY; aw=tw(alt,f); dw=tw(dist,f); total=icon+gap+aw+icon*2+arrow+gap+dw; }
-    let x=cx-total/2; const midY=y2+FH_TINY/2, fy=y2+(FH_TINY-(f===TINY?FH_TINY:FH_XTINY))/2;
-    tri([[x,midY+half],[x+half,midY-half],[x+icon,midY+half]],'#9CC8F5',true); x+=icon+gap;
-    dc.textAlign='left'; text(x,fy,f,C.WHITE,alt); x+=aw+icon*2;
-    dc.fillStyle='#9CC8F5'; dc.fillRect(x+half,midY-1,arrow-icon,3); tri([[x,midY],[x+half,midY-half],[x+half,midY+half]],'#9CC8F5',true); tri([[x+arrow,midY],[x+arrow-half,midY-half],[x+arrow-half,midY+half]],'#9CC8F5',true);
-    x+=arrow+gap; text(x,fy,f,C.WHITE,dist); dc.textAlign='center';
+    for (const label of shown) {
+      dc.fillStyle=C.sky;
+      dc.fillRect(label.x-label.half-2,label.y,label.half*2+4,FH_XTINY);
+      text(label.x,label.y,XTINY,label.color,label.name);
+    }
+    const p=sel[2];
+    selectedOccluded=!!p.occ;
+    text(cx,infoY,TINY,p.occ?C.muted:C.accent,fit(p.name,TINY,usable(infoY,FH_TINY)));
+    const dist=p.d<1000?Math.trunc(p.d)+' m'
+      :p.d<10000?(Math.round(p.d/100)/10).toFixed(1).replace('.',',')+' km':Math.trunc(p.d/1000)+' km';
+    const alt=Math.trunc(p.ele)+' m', y2=infoY+FH_TINY;
+    const icon=Math.trunc(FH_XTINY*0.45), gap=Math.trunc(icon*0.5), half=Math.trunc(icon/2);
+    const aw=tw(alt,XTINY), dw=tw(dist,XTINY), arrow=Math.trunc(icon*1.6);
+    const total=icon+gap+aw+icon*2+arrow+gap+dw;
+    if (total>usable(y2)) {
+      text(cx,y2,XTINY,C.ice,fit(alt+'  ·  '+dist,XTINY,usable(y2)));
+    } else {
+      let x=cx-total/2;
+      const midY=y2+FH_XTINY/2, teal='#80BBC7';
+      tri([[x,midY+half],[x+half,midY-half],[x+icon,midY+half]],teal,true);
+      x+=icon+gap;
+      dc.textAlign='left'; text(x,y2,XTINY,C.ice,alt); x+=aw+icon*2;
+      dc.fillStyle=teal; dc.fillRect(x+half,midY-1,arrow-icon,3);
+      tri([[x,midY],[x+half,midY-half],[x+half,midY+half]],teal,true);
+      tri([[x+arrow,midY],[x+arrow-half,midY-half],[x+arrow-half,midY+half]],teal,true);
+      x+=arrow+gap; text(x,y2,XTINY,C.ice,dist); dc.textAlign='center';
+    }
   }
-  text(cx,Math.round(h*0.25),XTINY,C.LT_GRAY,Math.trunc(hd)+'°  '+s.mode);
-  line(cx,h*0.28,cx,h*0.33,C.DK_GRAY);
-  const fy2=Math.round(h*0.845); let foot=s.foot||(s.occSel?'Quizá oculta':'© OpenStreetMap');
-  if (foot==='© OpenStreetMap' && tw(foot,XTINY)>usable(fy2)) foot='© OSM';
-  text(cx,fy2,XTINY,C.LT_GRAY,fit(foot,XTINY,usable(fy2)));
+  let foot=s.foot||(selectedOccluded?'Posible oclusión':'© OpenStreetMap');
+  if (foot==='© OpenStreetMap' && tw(foot,XTINY)>usable(footY)) foot='© OSM';
+  text(cx,footY,XTINY,C.muted,fit(foot,XTINY,usable(footY)));
 
   // Máscara circular de la pantalla AMOLED
   dc.globalCompositeOperation='destination-in'; dc.beginPath(); dc.arc(cx,h/2,h/2,0,Math.PI*2); dc.fill();

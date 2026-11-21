@@ -85,7 +85,9 @@ jobs:
           fi
 
       - name: Compilar pruebas (fr165)
-        run: monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165 -w -t -o build/tests-fr165.prg
+        run: |
+          mkdir -p build
+          monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165 -w -t -o build/tests-fr165.prg
 
       - name: Compilar para Forerunner 165 y 165 Music (.prg para USB)
         run: |

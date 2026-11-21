@@ -23,10 +23,13 @@ class HorizonteCimasApp extends Application.AppBase {
     function onPosition(info as Position.Info) as Void {
         var previousGeometry = model.geom;
         var previousStatus = model.status;
+        var previousFix = model.fixOk;
+        var previousFetching = model.fetching;
         var previousAltitude = model.altitudeOk;
         var previousLocal = model.localData;
         model.onPosition(info);
         if (previousGeometry != model.geom || previousStatus != model.status
+            || previousFix != model.fixOk || previousFetching != model.fetching
             || previousAltitude != model.altitudeOk || previousLocal != model.localData) {
             WatchUi.requestUpdate();
         }

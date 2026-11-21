@@ -11,7 +11,15 @@ class HorizonteCimasView extends WatchUi.View {
     const FOV = 60.0;
     const VEXAG = 4.0;
     const MAX_LABELS = 5;
-    const HIDDEN_PENALTY_DEG = 4.0;   // una visible a <4° del centro gana a una oculta
+    const HIDDEN_PENALTY_DEG = 4.0;
+    const SLOPE_TAN = 0.4;             // misma pendiente que la pista de oclusión del modelo
+    const TERRAIN_COLUMNS = 44;        // fillPolygon admite hasta 64 vértices
+    // Capas de lejos a cerca: [distancia_mínima_m, relleno, cresta]
+    const LAYERS = [
+        [20000, 0x16243A, 0x34507A],
+        [8000, 0x22395A, 0x5A84B8],
+        [0, 0x30507A, 0x9CC8F5]
+    ];   // una visible a <4° del centro gana a una oculta
 
     var model as PeakModel;
     var timer;
@@ -19,6 +27,7 @@ class HorizonteCimasView extends WatchUi.View {
     var compassOk = false;
     var drawnHeading = null;
     var roundScreen = true;
+    var selectedOccluded = false;
 
     function initialize(m as PeakModel) {
         View.initialize();
@@ -73,6 +82,7 @@ class HorizonteCimasView extends WatchUi.View {
         var ppd = w * 0.74 / FOV;
         var horizonY = (h * 0.63).toNumber();
         var fh = dc.getFontHeight(Graphics.FONT_XTINY);
+        selectedOccluded = false;
 
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
@@ -80,7 +90,6 @@ class HorizonteCimasView extends WatchUi.View {
 
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawLine((w * 0.10).toNumber(), horizonY, (w * 0.90).toNumber(), horizonY);
-        dc.drawLine(cx, (h * 0.28).toNumber(), cx, horizonY + 5);
 
         if (model.lat == null) {
             drawStatus(dc, cx, h, model.status);
@@ -91,6 +100,9 @@ class HorizonteCimasView extends WatchUi.View {
         } else {
             drawPeaks(dc, w, h, cx, hd, ppd, horizonY, fh);
         }
+        // Mira central por encima de la silueta.
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(cx, (h * 0.28).toNumber(), cx, (h * 0.33).toNumber());
 
         var mode = model.useCompass ? (compassOk ? "BRÚJULA" : "SIN BRÚJULA") : "MANUAL";
         var direction = hd.toNumber().toString() + "°  " + mode;
@@ -99,6 +111,9 @@ class HorizonteCimasView extends WatchUi.View {
             Graphics.TEXT_JUSTIFY_CENTER);
 
         var foot = "© OpenStreetMap";
+        if (selectedOccluded) {
+            foot = "Quizá oculta";
+        }
         if (model.localData && model.fetching) {
             foot = "Actualizando cimas…";
         } else if (model.localData && model.status != null) {
@@ -110,19 +125,27 @@ class HorizonteCimasView extends WatchUi.View {
         } else if (!model.altitudeOk) {
             foot = "Sin altitud GPS";
         }
-        dc.drawText(cx, (h * 0.86).toNumber(), Graphics.FONT_XTINY,
-            fitText(dc, foot, Graphics.FONT_XTINY, usableWidth(w, h, (h * 0.86).toNumber(), fh)),
+        var footY = (h * 0.845).toNumber();
+        var footWidth = usableWidth(w, h, footY, fh);
+        if (foot.equals("© OpenStreetMap") && dc.getTextWidthInPixels(foot, Graphics.FONT_XTINY) > footWidth) {
+            foot = "© OSM";
+        }
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, fitText(dc, foot, Graphics.FONT_XTINY, footWidth),
             Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     function drawPeaks(dc, w, h, cx, hd, ppd, horizonY, fh) as Void {
         // item: [desvío_horizontal, prioridad_etiqueta, fila_geom]
         var visible = [] as Array<Array>;
+        var terrain = [] as Array<Array>;     // [desvío, ángulo, distancia]
         var g = model.geom;
         var selected = null as Array or Null;
         var bestScore = 0.0;
+        var margin = FOV / 2 + 15;            // las laderas de cimas algo fuera de campo también entran
         for (var i = 0; i < g.size(); i++) {
             var dx = GeoMath.diff(g[i][0], hd);
+            if (dx >= -margin && dx <= margin) { terrain.add([dx, g[i][1], g[i][2]]); }
             if (dx < -FOV / 2 || dx > FOV / 2) { continue; }
             var occluded = g[i][5];
             // Las posibles ocultas pierden prioridad en etiquetas y selección.
@@ -133,6 +156,9 @@ class HorizonteCimasView extends WatchUi.View {
                 selected = item;
                 bestScore = score;
             }
+        }
+        if (model.altitudeOk) {
+            drawTerrain(dc, w, h, cx, ppd, horizonY, terrain);
         }
         if (selected == null) {
             drawStatus(dc, cx, h, "Sin cimas hacia aquí");
@@ -150,8 +176,7 @@ class HorizonteCimasView extends WatchUi.View {
             if (i >= 0 && item == selected) { continue; }
             var x = cx + (item[0] * ppd).toNumber();
             var row = item[2];
-            var markerY = clamp(horizonY - (row[1] * ppd * VEXAG).toNumber(),
-                (h * 0.49).toNumber(), (h * 0.68).toNumber());
+            var markerY = angleToY(row[1], ppd, h, horizonY);
             var name = fitText(dc, row[4], font, w * 0.30);
             var halfWidth = (dc.getTextWidthInPixels(name, font) + 1) / 2;
             var labelX = clamp(x, inset + halfWidth, w - inset - halfWidth);
@@ -188,19 +213,112 @@ class HorizonteCimasView extends WatchUi.View {
                 name, Graphics.TEXT_JUSTIFY_CENTER);
         }
 
-        // Ficha inferior fija: los indicadores de rumbo/altura no bailan.
+        // Ficha inferior fija: nombre y, debajo, altitud y distancia con iconos.
         var p = selected[2];
-        var infoY = (h * 0.70).toNumber();
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, infoY, Graphics.FONT_TINY,
-            fitText(dc, p[4], Graphics.FONT_TINY, w * 0.72), Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        var details = p[3].toNumber().toString() + " m · " + fmtDist(p[2]) + " · "
-            + (p[5] ? "oculta?" : p[0].toNumber().toString() + "°");
-        var detailsY = infoY + dc.getFontHeight(Graphics.FONT_TINY);
-        dc.drawText(cx, detailsY, Graphics.FONT_XTINY,
-            fitText(dc, details, Graphics.FONT_XTINY, usableWidth(w, h, detailsY, fh)),
+        selectedOccluded = p[5];
+        var infoY = (h * 0.675).toNumber();
+        var tf = Graphics.FONT_TINY;
+        var th = dc.getFontHeight(tf);
+        dc.setColor(p[5] ? Graphics.COLOR_LT_GRAY : Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, infoY, tf, fitText(dc, p[4], tf, usableWidth(w, h, infoY, th)),
             Graphics.TEXT_JUSTIFY_CENTER);
+        drawStats(dc, w, h, cx, infoY + th, p[3].toNumber().toString() + " m", fmtDist(p[2]));
+    }
+
+    // "▲ 2138 m   ↔ 4,2 km": iconos dibujados (no dependen de la fuente del reloj).
+    function drawStats(dc, w, h, cx, y, altText, distText) as Void {
+        var f = Graphics.FONT_TINY;
+        var th = dc.getFontHeight(f);
+        var icon = (th * 0.45).toNumber();
+        var gap = (icon * 0.5).toNumber();
+        var aw = dc.getTextWidthInPixels(altText, f);
+        var dw = dc.getTextWidthInPixels(distText, f);
+        var arrow = (icon * 1.6).toNumber();
+        var total = icon + gap + aw + icon * 2 + arrow + gap + dw;
+        if (total > usableWidth(w, h, y, th)) {
+            f = Graphics.FONT_XTINY;
+            aw = dc.getTextWidthInPixels(altText, f);
+            dw = dc.getTextWidthInPixels(distText, f);
+            total = icon + gap + aw + icon * 2 + arrow + gap + dw;
+        }
+        var x = cx - total / 2;
+        var midY = y + th / 2;
+        var half = icon / 2;
+        // Altitud: pequeño pico
+        dc.setColor(0x9CC8F5, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon([[x, midY + half], [x + half, midY - half], [x + icon, midY + half]]);
+        x += icon + gap;
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(x, y + (th - dc.getFontHeight(f)) / 2, f, altText, Graphics.TEXT_JUSTIFY_LEFT);
+        x += aw + icon * 2;
+        // Distancia: flecha doble
+        dc.setColor(0x9CC8F5, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(x + half, midY - 1, arrow - icon, 3);
+        dc.fillPolygon([[x, midY], [x + half, midY - half], [x + half, midY + half]]);
+        dc.fillPolygon([[x + arrow, midY], [x + arrow - half, midY - half], [x + arrow - half, midY + half]]);
+        x += arrow + gap;
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(x, y + (th - dc.getFontHeight(f)) / 2, f, distText, Graphics.TEXT_JUSTIFY_LEFT);
+    }
+
+    // Ángulo de elevación → coordenada Y. Lineal cerca del horizonte y comprimido
+    // suavemente hacia los límites, para que las cimas altas no queden aplanadas.
+    function angleToY(ea, ppd, h, horizonY) as Number {
+        var px = ea * ppd * VEXAG;
+        if (px >= 0) {
+            var up = horizonY - (h * 0.49);
+            return (horizonY - up * px / Math.sqrt(up * up + px * px)).toNumber();
+        }
+        var down = (h * 0.665) - horizonY;
+        return (horizonY + down * (-px) / Math.sqrt(down * down + px * px)).toNumber();
+    }
+
+    // Silueta aproximada: cada cima es un cono (ladera SLOPE_TAN) y cada capa de
+    // distancia se rellena con un tono distinto, de lejos (oscuro) a cerca (claro).
+    function drawTerrain(dc, w, h, cx, ppd, horizonY, terrain as Array<Array>) as Void {
+        var base = (h * 0.665).toNumber();
+        var x0 = (w * 0.05).toNumber();
+        var step = (w - 2 * x0) / (TERRAIN_COLUMNS - 1.0);
+        for (var L = 0; L < LAYERS.size(); L++) {
+            var minD = LAYERS[L][0];
+            var maxD = L == 0 ? 1.0e9 : LAYERS[L - 1][0];
+            var items = [] as Array<Array>;
+            for (var i = 0; i < terrain.size(); i++) {
+                var d = terrain[i][2];
+                if (d > minD && d <= maxD) { items.add(terrain[i]); }
+            }
+            if (items.size() == 0) { continue; }
+            var pts = [] as Array<Array>;
+            var any = false;
+            for (var c = 0; c < TERRAIN_COLUMNS; c++) {
+                var x = (x0 + c * step).toNumber();
+                var a = (x - cx) / ppd;
+                var best = -90.0;
+                for (var i = 0; i < items.size(); i++) {
+                    var off = a - items[i][0];
+                    if (off < 0) { off = -off; }
+                    var e = items[i][1] - off * SLOPE_TAN;
+                    if (e > best) { best = e; }
+                }
+                var y = best <= -89.0 ? base : angleToY(best, ppd, h, horizonY);
+                if (y > base) { y = base; }
+                if (y < base) { any = true; }
+                pts.add([x, y]);
+            }
+            if (!any) { continue; }
+            var poly = [] as Array<Array>;
+            poly.addAll(pts);
+            poly.add([pts[pts.size() - 1][0], base]);
+            poly.add([pts[0][0], base]);
+            dc.setColor(LAYERS[L][1], Graphics.COLOR_TRANSPARENT);
+            dc.fillPolygon(poly);
+            dc.setColor(LAYERS[L][2], Graphics.COLOR_TRANSPARENT);
+            for (var c = 1; c < pts.size(); c++) {
+                if (pts[c - 1][1] < base || pts[c][1] < base) {
+                    dc.drawLine(pts[c - 1][0], pts[c - 1][1], pts[c][0], pts[c][1]);
+                }
+            }
+        }
     }
 
     function drawStatus(dc, cx, h, message) as Void {

@@ -12,6 +12,8 @@ Apunta el reloj hacia el horizonte para identificar cumbres: **nombre, elevació
 - **Arranque inmediato.** La última posición conocida basta para mostrar las cimas de la caché al abrir la app. Para descargar sigue haciendo falta un fijo GPS real, y la última posición conocida nunca sustituye a un fijo ya obtenido.
 - **Cimas posiblemente ocultas.** Si una cima más cercana, en un rumbo próximo, asoma por encima de la línea de visión de otra más lejana, esta se dibuja con un triángulo hueco en gris. También pierde prioridad en etiquetas y selección, y la ficha añade «oculta?». La regla no usa un modelo del terreno: supone laderas de ~22° y solo se aplica con altitud GPS.
 - **Avisos más claros.** Sin brújula, el pie indica «Gira con ARRIBA/ABAJO». También indica cuando la posición es aproximada. Los avisos «Esperando GPS preciso…» y «Cimas fuera de zona» desaparecen al volver a tener datos de la zona.
+- **Silueta de las montañas.** Se dibuja un perfil del horizonte en tres capas de distancia (más de 20 km, de 8 a 20 km y menos de 8 km), de lejos y oscuro a cerca y claro. Cada cima se modela como un cono con la misma pendiente que la pista de oclusión. Las cimas altas se comprimen suavemente en lugar de recortarse. Solo se dibuja con altitud GPS.
+- **Ficha de la cima centrada.** Muestra el nombre y, debajo, la altitud (▲) y la distancia (↔) en letra grande con iconos. Las etiquetas van en dos filas (hasta 5) y los textos se ajustan al ancho real de la pantalla redonda.
 - La caché pasa a la versión 2 (cimas ordenadas por rumbo) y migra sola desde las versiones 0.2 y 0.3.
 - Nuevas pruebas Monkey C: `overpassScaling`, `retryPolicy` y `occlusionHint`. El validador Python comprueba también la lista de servidores y la regla de oclusión.
 

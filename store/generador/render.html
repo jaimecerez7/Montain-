@@ -43,7 +43,7 @@ function drawScene(s){
   dc.fillStyle = C.sky; dc.fillRect(0,0,w,h);
   const headingY = tapeY-FH_XTINY-FH_TINY-10;
   text(cx,headingY,TINY,C.ice,
-    s.mode==='SIN BRÚJULA' ? '—' : String(Math.trunc(hd)).padStart(3,'0')+'°');
+    s.mode==='SIN BRÚJULA' ? '---' : String(Math.trunc(hd)).padStart(3,'0')+'°');
   text(cx,headingY+FH_TINY,XTINY,C.muted,s.mode);
   const edge = Math.trunc(FOV/2*ppd);
   line(cx-edge,tapeY,cx+edge,tapeY,C.grid);

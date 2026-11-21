@@ -88,6 +88,7 @@ class HorizonteCimasView extends WatchUi.View {
         var ppd = w * 0.74 / FOV;
         var fh = dc.getFontHeight(Graphics.FONT_XTINY);
         var titleHeight = dc.getFontHeight(Graphics.FONT_TINY);
+        selectedOccluded = false;   // drawPeaks lo vuelve a activar solo si procede
         var footY = (h * 0.93).toNumber() - fh;
         var infoY = footY - fh - titleHeight - 6;
         var horizonY = infoY - 8;
@@ -101,7 +102,7 @@ class HorizonteCimasView extends WatchUi.View {
         dc.setColor(SKY, SKY);
         dc.clear();
         var mode = model.useCompass ? (compassOk ? "BRÚJULA" : "SIN BRÚJULA") : "MANUAL";
-        var headingText = model.useCompass && !compassOk ? "—" : hd.toNumber().format("%03d") + "°";
+        var headingText = model.useCompass && !compassOk ? "---" : hd.toNumber().format("%03d") + "°";
         var headingY = tapeY - fh - titleHeight - 10;
         dc.setColor(ICE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, headingY, Graphics.FONT_TINY, headingText, Graphics.TEXT_JUSTIFY_CENTER);
@@ -133,7 +134,7 @@ class HorizonteCimasView extends WatchUi.View {
         } else if (selectedOccluded) {
             foot = "Posible oclusión";
         } else if (model.useCompass && !compassOk) {
-            foot = "Gira con ↑ / ↓";
+            foot = "Gira con ARRIBA/ABAJO";
         } else if (model.lat != null && !model.fixOk) {
             foot = "Posición aproximada";
         } else if (model.localData && !model.altitudeOk) {
@@ -373,11 +374,11 @@ class HorizonteCimasView extends WatchUi.View {
 
     function fmtDist(meters) {
         if (meters < 1000) { return meters.toNumber().toString() + " m"; }
-        if (meters < 10000) {
-            var tenths = Math.round(meters / 100.0).toNumber();
+        var tenths = Math.round(meters / 100.0).toNumber();
+        if (tenths < 100) {
             return (tenths / 10).toString() + "," + (tenths % 10).toString() + " km";
         }
-        return (meters / 1000.0).toNumber().toString() + " km";
+        return Math.round(meters / 1000.0).toNumber().toString() + " km";
     }
 
     function fitText(dc, name, font, width) {

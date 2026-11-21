@@ -103,3 +103,13 @@ function occlusionHint(logger as Test.Logger) as Boolean {
     }
     return true;
 }
+
+(:test)
+function distanceFormat(logger as Test.Logger) as Boolean {
+    var view = new HorizonteCimasView(new PeakModel());
+    Test.assert(view.fmtDist(850).equals("850 m"));
+    Test.assert(view.fmtDist(4249).equals("4,2 km"));
+    Test.assert(view.fmtDist(9960).equals("10 km"));
+    Test.assert(view.fmtDist(19500).equals("20 km"));
+    return true;
+}

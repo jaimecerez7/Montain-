@@ -24,6 +24,7 @@ class PeakModel {
     const OCCLUSION_WINDOW_DEG = 10.0;
     const OCCLUSION_MARGIN_DEG = 0.05;
     const OCCLUSION_MIN_GAP_M = 300;
+    const SEARCHING_GPS = "Buscando señal GPS…";
     const WAIT_FIX = "Esperando GPS preciso…";
     const OUT_OF_ZONE = "Cimas fuera de zona";
 
@@ -45,7 +46,7 @@ class PeakModel {
     var fixOk = false;           // posición GPS real (no la última conocida)
     var peaks as Array<Array> = [];
     var geom as Array<Array> = [];
-    var status as String or Null = "Buscando señal GPS…";
+    var status as String or Null = SEARCHING_GPS;
     var fetching = false;
     var lastAttempt = null;
     var dataLat = null;
@@ -135,7 +136,7 @@ class PeakModel {
 
         var st = status;
         if (localData && !fetching && st != null
-            && (st.equals("Buscando señal GPS…") || st.equals(WAIT_FIX) || st.equals(OUT_OF_ZONE))) {
+            && (st.equals(SEARCHING_GPS) || st.equals(WAIT_FIX) || st.equals(OUT_OF_ZONE))) {
             status = null;   // avisos que ya no aplican al volver a la zona con datos
         }
         if (localData || fetching) { return; }

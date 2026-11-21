@@ -2,6 +2,7 @@ import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.Math;
 import Toybox.Sensor;
+import Toybox.System;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
@@ -9,7 +10,7 @@ import Toybox.WatchUi;
 class HorizonteCimasView extends WatchUi.View {
     const FOV = 60.0;
     const VEXAG = 4.0;
-    const MAX_LABELS = 4;
+    const MAX_LABELS = 5;
     const HIDDEN_PENALTY_DEG = 4.0;   // una visible a <4° del centro gana a una oculta
 
     var model as PeakModel;
@@ -17,11 +18,13 @@ class HorizonteCimasView extends WatchUi.View {
     var heading = null;
     var compassOk = false;
     var drawnHeading = null;
+    var roundScreen = true;
 
     function initialize(m as PeakModel) {
         View.initialize();
         model = m;
         timer = new Timer.Timer();
+        roundScreen = System.getDeviceSettings().screenShape == System.SCREEN_SHAPE_ROUND;
     }
 
     function onShow() as Void {
@@ -108,7 +111,8 @@ class HorizonteCimasView extends WatchUi.View {
             foot = "Sin altitud GPS";
         }
         dc.drawText(cx, (h * 0.86).toNumber(), Graphics.FONT_XTINY,
-            fitText(dc, foot, Graphics.FONT_XTINY, w * 0.61), Graphics.TEXT_JUSTIFY_CENTER);
+            fitText(dc, foot, Graphics.FONT_XTINY, usableWidth(w, h, (h * 0.86).toNumber(), fh)),
+            Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     function drawPeaks(dc, w, h, cx, hd, ppd, horizonY, fh) as Void {
@@ -139,7 +143,8 @@ class HorizonteCimasView extends WatchUi.View {
         var shown = [] as Array<Array>;
         var font = Graphics.FONT_XTINY;
         var inset = (w * 0.12).toNumber();
-        var labelY = (h * 0.34).toNumber();
+        // Dos filas de etiquetas: si una choca en la primera, se prueba la segunda.
+        var rowY = [(h * 0.34).toNumber(), (h * 0.34).toNumber() + fh + 2];
         for (var i = -1; i < visible.size() && shown.size() < MAX_LABELS; i++) {
             var item = i < 0 ? selected : visible[i];
             if (i >= 0 && item == selected) { continue; }
@@ -147,18 +152,23 @@ class HorizonteCimasView extends WatchUi.View {
             var row = item[2];
             var markerY = clamp(horizonY - (row[1] * ppd * VEXAG).toNumber(),
                 (h * 0.49).toNumber(), (h * 0.68).toNumber());
-            var name = fitText(dc, row[4], font, w * 0.25);
+            var name = fitText(dc, row[4], font, w * 0.30);
             var halfWidth = (dc.getTextWidthInPixels(name, font) + 1) / 2;
             var labelX = clamp(x, inset + halfWidth, w - inset - halfWidth);
-            var free = true;
-            for (var j = 0; j < shown.size(); j++) {
-                if (absf(labelX - shown[j][0]) < halfWidth + shown[j][1] + 6) {
-                    free = false;
-                    break;
+            var labelRow = -1;
+            for (var r = 0; r < 2 && labelRow < 0; r++) {
+                var free = true;
+                for (var j = 0; j < shown.size(); j++) {
+                    if (shown[j][2] == r && absf(labelX - shown[j][0]) < halfWidth + shown[j][1] + 6) {
+                        free = false;
+                        break;
+                    }
                 }
+                if (free) { labelRow = r; }
             }
-            if (!free) { continue; }
-            shown.add([labelX, halfWidth]);
+            if (labelRow < 0) { continue; }
+            shown.add([labelX, halfWidth, labelRow]);
+            var labelY = rowY[labelRow];
             var isSelected = item == selected;
             var lineColor = isSelected ? Graphics.COLOR_YELLOW
                 : (row[5] ? Graphics.COLOR_DK_GRAY : Graphics.COLOR_LT_GRAY);
@@ -180,16 +190,17 @@ class HorizonteCimasView extends WatchUi.View {
 
         // Ficha inferior fija: los indicadores de rumbo/altura no bailan.
         var p = selected[2];
-        var infoY = (h * 0.72).toNumber();
+        var infoY = (h * 0.70).toNumber();
         dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, infoY, Graphics.FONT_TINY,
             fitText(dc, p[4], Graphics.FONT_TINY, w * 0.72), Graphics.TEXT_JUSTIFY_CENTER);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        var details = p[3].toNumber().toString() + " m  ·  "
-            + fmtDist(p[2]) + "  ·  " + p[0].toNumber().toString() + "°";
-        if (p[5]) { details += "  ·  ¿oculta?"; }
-        dc.drawText(cx, infoY + dc.getFontHeight(Graphics.FONT_TINY), Graphics.FONT_XTINY,
-            fitText(dc, details, Graphics.FONT_XTINY, w * 0.80), Graphics.TEXT_JUSTIFY_CENTER);
+        var details = p[3].toNumber().toString() + " m · " + fmtDist(p[2]) + " · "
+            + (p[5] ? "oculta?" : p[0].toNumber().toString() + "°");
+        var detailsY = infoY + dc.getFontHeight(Graphics.FONT_TINY);
+        dc.drawText(cx, detailsY, Graphics.FONT_XTINY,
+            fitText(dc, details, Graphics.FONT_XTINY, usableWidth(w, h, detailsY, fh)),
+            Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     function drawStatus(dc, cx, h, message) as Void {
@@ -241,6 +252,19 @@ class HorizonteCimasView extends WatchUi.View {
             }
         }
         return low == 0 ? "" : name.substring(0, low) + "…";
+    }
+
+    // Ancho útil de una línea de texto: en pantallas redondas, la cuerda del círculo
+    // en el borde más estrecho de la línea, con un pequeño margen.
+    function usableWidth(w, h, top, lineHeight) {
+        if (!roundScreen) { return w * 0.92; }
+        var r = w / 2.0;
+        var dTop = top - h / 2.0;
+        var dBottom = top + lineHeight - h / 2.0;
+        var dy = absf(dTop) > absf(dBottom) ? dTop : dBottom;
+        var sq = r * r - dy * dy;
+        if (sq <= 0) { return 0; }
+        return 2 * Math.sqrt(sq) * 0.9;
     }
 
     function clamp(v, lo, hi) {

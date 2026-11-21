@@ -1,0 +1,82 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>body{margin:0;background:#000}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// Réplica del dibujo de HorizonteCimasView.mc (mismas proporciones y colores Garmin).
+const C = {BLACK:'#000', WHITE:'#FFFFFF', LT_GRAY:'#AAAAAA', DK_GRAY:'#555555', YELLOW:'#FFAA00', RED:'#FF0000'};
+const FOV = 60, VEXAG = 4, MAX_LABELS = 5, HIDDEN_PENALTY = 4;
+const XTINY = '22px "Liberation Sans", sans-serif', TINY = 'bold 28px "Liberation Sans", sans-serif';
+const FH_XTINY = 25, FH_TINY = 31;
+
+function norm(a){ while(a<0)a+=360; while(a>=360)a-=360; return a; }
+function diff(a,b){ let d=a-b; while(d>180)d-=360; while(d<-180)d+=360; return d; }
+function clamp(v,lo,hi){ return v<lo?lo:(v>hi?hi:v); }
+
+function drawScene(s){
+  const cv = document.getElementById('c'); const w = 390, h = 390;
+  cv.width = w; cv.height = h; const dc = cv.getContext('2d');
+  dc.textBaseline = 'top'; dc.textAlign = 'center';
+  const tw = (t,f) => { dc.font=f; return dc.measureText(t).width; };
+  const fit = (t,f,width) => { if (tw(t,f)<=width) return t; let n=t.length; while(n>0 && tw(t.substring(0,n)+'…',f)>width) n--; return n? t.substring(0,n)+'…' : ''; };
+  const text = (x,y,f,col,t) => { dc.font=f; dc.fillStyle=col; dc.fillText(t,x,y); };
+  const line = (x1,y1,x2,y2,col) => { dc.strokeStyle=col; dc.lineWidth=2; dc.beginPath(); dc.moveTo(x1,y1); dc.lineTo(x2,y2); dc.stroke(); };
+  const tri = (pts,col,fill) => { dc.beginPath(); dc.moveTo(...pts[0]); dc.lineTo(...pts[1]); dc.lineTo(...pts[2]); dc.closePath();
+    if (fill){ dc.fillStyle=col; dc.fill(); } else { dc.strokeStyle=col; dc.lineWidth=2; dc.stroke(); } };
+
+  const usable = (top) => { const r=w/2, a=top-h/2, b=top+FH_XTINY-h/2, dy=Math.abs(a)>Math.abs(b)?a:b, q=r*r-dy*dy; return q<=0?0:2*Math.sqrt(q)*0.9; };
+  const cx = w/2, hd = s.heading, ppd = w*0.74/FOV, horizonY = Math.round(h*0.63);
+  dc.fillStyle = C.BLACK; dc.fillRect(0,0,w,h);
+
+  // Cinta de rumbo
+  const y = Math.round(h*0.21);
+  for (let a = Math.ceil((hd-FOV/2)/10)*10; a <= hd+FOV/2; a += 10){
+    const x = w/2 + Math.trunc(diff(a,hd)*ppd); const dir = Math.trunc(norm(a));
+    if (dir%90==0 && x>=w*0.17 && x<=w*0.83){ line(x,y-8,x,y,C.LT_GRAY); text(x,y-8-FH_XTINY,XTINY,C.LT_GRAY,['N','NE','E','SE','S','SO','O','NO'][Math.trunc(dir/45)%8]); }
+    else line(x,y-4,x,y,C.LT_GRAY);
+  }
+  tri([[w/2,y+1],[w/2-5,y+8],[w/2+5,y+8]],C.RED,true);
+
+  line(w*0.10,horizonY,w*0.90,horizonY,C.DK_GRAY);
+  line(cx,h*0.28,cx,horizonY+5,C.DK_GRAY);
+
+  if (s.status){
+    text(cx,Math.round(h*0.48),XTINY,C.LT_GRAY,fit(s.status,XTINY,w*0.83));
+  } else {
+    const visible=[]; let sel=null, best=0;
+    for (const p of s.peaks){
+      const dx = diff(p.b,hd); if (dx<-FOV/2||dx>FOV/2) continue;
+      const item=[dx, p.occ? p.ea-100 : p.ea, p]; visible.push(item);
+      const score=Math.abs(dx)+(p.occ?HIDDEN_PENALTY:0);
+      if (sel==null||score<best){ sel=item; best=score; }
+    }
+    visible.sort((a,b)=>b[1]-a[1]);
+    const shown=[]; const inset=Math.trunc(w*0.12); const rowY=[Math.round(h*0.34), Math.round(h*0.34)+FH_XTINY+2];
+    for (let i=-1;i<visible.length && shown.length<MAX_LABELS;i++){
+      const item = i<0? sel : visible[i]; if (i>=0 && item===sel) continue;
+      const row=item[2]; const x = cx + Math.trunc(item[0]*ppd);
+      const markerY = clamp(horizonY - Math.trunc(row.ea*ppd*VEXAG), Math.trunc(h*0.49), Math.trunc(h*0.68));
+      const name = fit(row.name,XTINY,w*0.30); const half=(tw(name,XTINY)+1)/2;
+      const lx = clamp(x, inset+half, w-inset-half);
+      let lr=-1; for (let r=0;r<2&&lr<0;r++){ if(!shown.some(s2=>s2[2]==r && Math.abs(lx-s2[0]) < half+s2[1]+6)) lr=r; }
+      if (lr<0) continue; shown.push([lx,half,lr]); const labelY=rowY[lr];
+      const isSel = item===sel;
+      const lc = isSel? C.YELLOW : (row.occ? C.DK_GRAY : C.LT_GRAY);
+      line(lx,labelY+FH_XTINY,x,markerY-7,lc);
+      tri([[x,markerY-6],[x-5,markerY+3],[x+5,markerY+3]],lc,!row.occ);
+      text(lx,labelY,XTINY,isSel?C.YELLOW:(row.occ?C.LT_GRAY:C.WHITE),name);
+    }
+    const p=sel[2], infoY=Math.round(h*0.70);
+    text(cx,infoY,TINY,C.YELLOW,fit(p.name,TINY,w*0.72));
+    const dist = p.d<10000? (p.d/1000).toFixed(1)+' km' : Math.trunc(p.d/1000)+' km';
+    const det = Math.trunc(p.ele)+' m · '+dist+' · '+(p.occ? 'oculta?' : Math.trunc(p.b)+'°');
+    text(cx,infoY+FH_TINY,XTINY,C.WHITE,fit(det,XTINY,usable(infoY+FH_TINY)));
+  }
+  text(cx,Math.round(h*0.25),XTINY,C.LT_GRAY,Math.trunc(hd)+'°  '+s.mode);
+  text(cx,Math.round(h*0.86),XTINY,C.LT_GRAY,fit(s.foot||'© OpenStreetMap',XTINY,usable(Math.round(h*0.86))));
+
+  // Máscara circular de la pantalla AMOLED
+  dc.globalCompositeOperation='destination-in'; dc.beginPath(); dc.arc(cx,h/2,h/2,0,Math.PI*2); dc.fill();
+  dc.globalCompositeOperation='destination-over'; dc.fillStyle='#000'; dc.fillRect(0,0,w,h);
+}
+window.drawScene = drawScene;
+</script></body></html>

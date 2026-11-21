@@ -123,7 +123,8 @@ class HorizonteCimasView extends WatchUi.View {
         } else if (model.geom.size() == 0) {
             drawStatus(dc, cx, h, "Sin cimas en el alcance");
         } else {
-            drawPeaks(dc, w, h, cx, hd, ppd, horizonY, crestY, infoY, firstLabelY, rowCount, fh);
+            // Algunos relojes (fenix 6) admiten como máximo 9 argumentos por método.
+            drawPeaks(dc, w, h, cx, hd, ppd, fh, [horizonY, crestY, infoY, firstLabelY, rowCount]);
         }
 
         var foot = "© OpenStreetMap";
@@ -149,7 +150,13 @@ class HorizonteCimasView extends WatchUi.View {
             Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    function drawPeaks(dc, w, h, cx, hd, ppd, horizonY, crestY, infoY, firstLabelY, rowCount, fh) as Void {
+    // layout: [horizonY, crestY, infoY, firstLabelY, rowCount]
+    function drawPeaks(dc, w, h, cx, hd, ppd, fh, layout as Array) as Void {
+        var horizonY = layout[0];
+        var crestY = layout[1];
+        var infoY = layout[2];
+        var firstLabelY = layout[3];
+        var rowCount = layout[4];
         // item: [desvío_horizontal, prioridad_etiqueta, fila_geom]
         var visible = [] as Array<Array>;
         var terrain = [] as Array<Array>;     // [desvío, ángulo, distancia]

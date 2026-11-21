@@ -120,11 +120,11 @@ class HorizonteCimasView extends WatchUi.View {
         for (var i = 0; i < g.size(); i++) {
             var dx = GeoMath.diff(g[i][0], hd);
             if (dx < -FOV / 2 || dx > FOV / 2) { continue; }
-            var hidden = g[i][5];
+            var occluded = g[i][5];
             // Las posibles ocultas pierden prioridad en etiquetas y selección.
-            var item = [dx, hidden ? g[i][1] - 100 : g[i][1], g[i]];
+            var item = [dx, occluded ? g[i][1] - 100 : g[i][1], g[i]];
             visible.add(item);
-            var score = absf(dx) + (hidden ? HIDDEN_PENALTY_DEG : 0.0);
+            var score = absf(dx) + (occluded ? HIDDEN_PENALTY_DEG : 0.0);
             if (selected == null || score < bestScore) {
                 selected = item;
                 bestScore = score;

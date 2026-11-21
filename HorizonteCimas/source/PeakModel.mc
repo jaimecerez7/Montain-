@@ -401,8 +401,8 @@ class PeakModel {
         var n = g.size();
         for (var i = 0; i < n; i++) {
             var gi = g[i];
-            var hidden = false;
-            for (var dir = -1; dir <= 1 && !hidden; dir += 2) {
+            var occluded = false;
+            for (var dir = -1; dir <= 1 && !occluded; dir += 2) {
                 for (var k = 1; k < n; k++) {
                     var j = (i + dir * k) % n;
                     if (j < 0) { j += n; }
@@ -412,12 +412,12 @@ class PeakModel {
                     if (offset > OCCLUSION_WINDOW_DEG) { break; }
                     if (gj[2] + OCCLUSION_MIN_GAP_M < gi[2]
                         && gj[1] - offset * SLOPE_TAN > gi[1] + OCCLUSION_MARGIN_DEG) {
-                        hidden = true;
+                        occluded = true;
                         break;
                     }
                 }
             }
-            gi[5] = hidden;
+            gi[5] = occluded;
         }
     }
 

@@ -54,7 +54,11 @@ jobs:
           else
             connect-iq-sdk-manager agreement accept
           fi
-          connect-iq-sdk-manager login
+          # Recortar espacios y saltos de línea que se cuelan al pegar desde el móvil.
+          U=$(printf '%s' "$GARMIN_USERNAME" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          P=$(printf '%s' "$GARMIN_PASSWORD" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          echo "Usuario: ${#U} caracteres, contiene @: $(case "$U" in *@*) echo sí;; *) echo no;; esac). Contraseña: ${#P} caracteres."
+          GARMIN_USERNAME="$U" GARMIN_PASSWORD="$P" connect-iq-sdk-manager login
           connect-iq-sdk-manager sdk set '^9.0.0' || connect-iq-sdk-manager sdk set '^8.0.0'
           echo "$(connect-iq-sdk-manager sdk current-path --bin)" >> "$GITHUB_PATH"
           connect-iq-sdk-manager device download --manifest="$APP_DIR/manifest.xml"

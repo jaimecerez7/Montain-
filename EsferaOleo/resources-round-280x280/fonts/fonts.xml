@@ -1,0 +1,11 @@
+<fonts>
+    <font id="Time" filename="time.fnt" antialias="true"/>
+    <font id="Timem" filename="timem.fnt" antialias="true"/>
+    <font id="Data" filename="data.fnt" antialias="true"/>
+    <font id="Label" filename="label.fnt" antialias="true"/>
+    <font id="Small" filename="small.fnt" antialias="true"/>
+    <font id="Timeb" filename="timeb.fnt" antialias="true"/>
+    <font id="Timesb" filename="timesb.fnt" antialias="true"/>
+    <font id="Timesl" filename="timesl.fnt" antialias="true"/>
+    <font id="Mini" filename="mini.fnt" antialias="true"/>
+</fonts>

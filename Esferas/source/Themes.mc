@@ -215,28 +215,40 @@ class Themes {
     // ------------------------------------------------------------ COLLAGE
     // La hora, en papeles de color recortados y pegados; los datos, en una tira de papel.
     function collage(dc as Graphics.Dc, d as FaceData) as Void {
-        var ink = 0x24211E;
-        var soft = 0x6E6457;
+        var ink = 0x1C1A17;
+        var brown = 0x5A4E40;
         background(dc, 0xEFE5CF);
+        var l = Graphics.TEXT_JUSTIFY_LEFT;
         var c = Graphics.TEXT_JUSTIFY_CENTER;
-        Draw.text(dc, Draw.p(195), Draw.p(64), d.date, fLabel, ink, c);                             // cinta: fecha
-        glyphTimeB(dc, Draw.p(195), Draw.p(104), d.time, -2, true);                                  // papeles que saltan
-        small(dc, Draw.p(104), Draw.p(258), [[d.cond, d.temp]], [ink, soft, 0xF5EFE3], 18);           // círculo crema
-        small(dc, Draw.p(104), Draw.p(284), [[:drop, d.precip]], [soft, soft, 0xF5EFE3], 14);
-        moonImg(dc, Draw.p(286), Draw.p(264));                                                       // círculo azul noche
-        Draw.text(dc, Draw.p(286), Draw.p(284), moonPct(d), fMini, 0xE9E2D2, c);
-        small(dc, Draw.p(195), Draw.p(256), [[:steps, d.stepsText()]], [ink, soft, 0xF2E7CF], 14);      // tira
-        var bx = Draw.p(162);
-        var bw = Draw.p(66);
-        var bh = Draw.p(2) < 1 ? 1 : Draw.p(2);
+        // cinta de la fecha: fecha · batería
+        var bat = pct(d.battery);
+        var dw = dc.getTextWidthInPixels(d.date, fLabel);
+        var bw2 = Draw.p(14) + Draw.p(5) + dc.getTextWidthInPixels(bat, fSmall);
+        var gapD = Draw.p(16);
+        var dx0 = Draw.p(195) - (dw + gapD + bw2) / 2;
+        Draw.text(dc, dx0, Draw.p(64), d.date, fLabel, ink, l);
+        small(dc, dx0 + dw + gapD + bw2 / 2, Draw.p(64), [[:battery, bat]], [brown, brown, 0xEFE6CC], 14);
+        glyphTimeB(dc, Draw.p(195), Draw.p(104), d.time, -2, true);                       // papeles que saltan
+        // círculo azafrán: tiempo
+        row(dc, Draw.p(98), Draw.p(250), [[d.cond, d.temp]], ink, ink, 0xE8B227, 22);
+        small(dc, Draw.p(98), Draw.p(282), [[:drop, d.precip]], [0x4A3810, 0x4A3810, 0xE8B227], 14);
+        // tira blanca: pasos y su progreso
+        Draw.iconSteps(dc, Draw.p(186), Draw.p(240), Draw.p(18), brown);
+        Draw.text(dc, Draw.p(195), Draw.p(260), d.stepsText(), fData, ink, c);
+        var bx = Draw.p(160);
+        var bw = Draw.p(70);
+        var bh = Draw.p(2.5) < 1 ? 1 : Draw.p(2.5);
         var f = d.goal > 0 ? d.steps.toFloat() / d.goal : 0.0;
         if (f > 1) { f = 1.0; }
-        dc.setColor(0xD9CCB2, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(bx, Draw.p(276), bw, bh);
-        dc.setColor(0xD7372A, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(bx, Draw.p(276), (bw * f).toNumber(), bh);
-        small(dc, Draw.p(195), Draw.p(282), [[:battery, pct(d.battery)]], [soft, soft, 0xF2E7CF], 14);
-        small(dc, Draw.p(195), Draw.p(326), [[:sunrise, d.sunrise], [:sunset, d.sunset]], [ink, soft, 0xEBDDBA], 14);
+        dc.setColor(0xD9CEB8, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(bx, Draw.p(288), bw, bh);
+        dc.setColor(0xD23A22, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(bx, Draw.p(288), (bw * f).toNumber(), bh);
+        // círculo azul noche: luna
+        moonImg(dc, Draw.p(292), Draw.p(256));
+        Draw.text(dc, Draw.p(292), Draw.p(280), moonPct(d), fSmall, 0xEDE6D6, c);
+        // cinta negra: amanecer y atardecer
+        small(dc, Draw.p(195), Draw.p(320), [[:sunrise, d.sunrise], [:sunset, d.sunset]], [0xF3EEE4, 0xE8B227, 0x151413], 14);
     }
 
     // ------------------------------------------------------------ CIELO PINTADO

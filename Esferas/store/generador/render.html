@@ -151,19 +151,27 @@ function reticula(d){
 // =================== COLLAGE ===================
 function collage(d){
   art(['collage', 'collage2', 'collage3'][d.variant || 0]);                             // un collage distinto cada día
-  const ink = '#24211E', soft = '#6E6457';
-  text(P(195), P(64), d.date, F.label, ink);                                           // cinta adhesiva: fecha
+  const ink = '#1C1A17';
+  // cinta de la fecha: fecha · batería
+  const dw = textW(d.date, F.label), bw2 = P(14) + P(5) + textW(d.battery + '%', F.small), gapD = P(16);
+  const dx0 = P(195) - (dw + gapD + bw2) / 2;
+  text(dx0, P(64), d.date, F.label, ink, 'l');
+  row(dx0 + dw + gapD + bw2 / 2, P(64), [['battery', d.battery + '%']], '#5A4E40', '#5A4E40', '#EFE6CC', 14, F.small);
   glyphTime(P(195), P(104), d.time, 'co', -2, true);                                   // papeles recortados que saltan
-  row(P(104), P(258), [[d.cond, d.temp + '°']], ink, soft, '#F5EFE3', 18, F.small);       // círculo crema: tiempo
-  row(P(104), P(284), [['drop', d.precip + '%']], soft, soft, '#F5EFE3', 14, F.small);
-  const mp = IMG['moon' + d.moonIdx];                                                  // círculo azul noche: luna
-  dc.drawImage(mp, P(286) - mp.width / 2, P(264) - mp.height / 2);
-  text(P(286), P(284), Math.round(d.moonIllum * 100) + '%', F.mini, '#E9E2D2');
-  row(P(195), P(256), [['steps', fmtSteps(d.steps)]], ink, soft, '#F2E7CF', 14, F.small);   // tira: pasos y batería
-  const bx = P(162), bw = P(66), by = P(276), f = Math.min(1, d.steps / d.goal);
-  rect(bx, by, bw, Math.max(1, P(2)), '#D9CCB2'); rect(bx, by, bw * f, Math.max(1, P(2)), '#D7372A');
-  row(P(195), P(282), [['battery', d.battery + '%']], soft, soft, '#F2E7CF', 14, F.small);
-  row(P(195), P(326), [['sunrise', d.sunrise], ['sunset', d.sunset]], ink, soft, '#EBDDBA', 14, F.small);  // cinta: sol
+  // círculo azafrán: tiempo
+  row(P(98), P(250), [[d.cond, d.temp + '°']], ink, ink, '#E8B227', 22);
+  row(P(98), P(282), [['drop', d.precip + '%']], '#4A3810', '#4A3810', '#E8B227', 14, F.small);
+  // tira blanca: pasos y su progreso
+  icon('steps', P(186), P(240), P(18), '#5A4E40');
+  text(P(195), P(260), fmtSteps(d.steps), F.data, ink);
+  const bx = P(160), bw = P(70), by = P(288), f = Math.min(1, d.steps / d.goal);
+  rect(bx, by, bw, Math.max(1, P(2.5)), '#D9CEB8'); rect(bx, by, bw * f, Math.max(1, P(2.5)), '#D23A22');
+  // círculo azul noche: luna
+  const mp = IMG['moon' + d.moonIdx];
+  dc.drawImage(mp, P(292) - mp.width / 2, P(256) - mp.height / 2);
+  text(P(292), P(280), Math.round(d.moonIllum * 100) + '%', F.small, '#EDE6D6');
+  // cinta negra: amanecer y atardecer
+  row(P(195), P(320), [['sunrise', d.sunrise], ['sunset', d.sunset]], '#F3EEE4', '#E8B227', '#151413', 14, F.small);
 }
 
 // =================== CIELO PINTADO ===================

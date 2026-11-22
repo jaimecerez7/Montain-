@@ -284,16 +284,27 @@ PALETTE = ["#D23A22", "#13894C", "#2550A0", "#5D93BC", "#C8664B", "#C8932B", "#E
 LABEL = (56, 88, 334, 294)
 
 
-COLLAGE_HOLDERS = {   # soportes de papel para los datos (diseño a 390)
-    "temp": ("circle", 104, 272, 44, "#F5EFE3"),
-    "moon": ("circle", 286, 272, 44, "#1F2A44"),
-    "steps": ("rect", 150, 248, 240, 298, "#F2E7CF"),
-    "sun": ("rect", 118, 320, 272, 348, "#EBDDBA"),
-    "date": ("rect", 122, 56, 268, 84, "#EFE6CC"),
+COLLAGE_HOLDERS = {   # piezas de papel para los datos (diseño a 390): tipo, geometría, color, giro
+    "temp": ("circle", 98, 266, 42, "#E8B227", 0),
+    "moon": ("circle", 292, 266, 42, "#1C2B4A", 0),
+    "steps": ("rect", 146, 234, 244, 300, "#F3EEE4", -3.0),
+    "sun": ("rect", 112, 312, 278, 340, "#151413", 1.5),
+    "date": ("rect", 76, 56, 314, 84, "#EFE6CC", -1.0),
 }
 
 
-def paper_piece(img, kind, geom, color, seed, shadow=0.32):
+def paper_piece(img, kind, geom, color, seed, shadow=0.32, angle=0.0):
+    if kind == "rect" and angle:
+        x0, y0, x1, y1 = geom
+        cx, cy, a = (x0 + x1) / 2, (y0 + y1) / 2, np.radians(angle)
+        corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+        pts = [(cx + (x - cx) * np.cos(a) - (y - cy) * np.sin(a), cy + (x - cx) * np.sin(a) + (y - cy) * np.cos(a))
+               for x, y in corners]
+        sh = poly_mask([(x + 2, y + 3) for x, y in pts], blur=3)
+        m = poly_mask(pts, blur=0.6)
+        img = img * (1 - shadow * sh)[..., None]
+        paper = mottle(linen(solid(color), 0.05, seed + 2), 0.05, seed + 3, 3)
+        return over(img, paper, m)
     if kind == "circle":
         cx, cy, r = geom
         pts = [(cx + np.cos(q) * r * (1 + 0.015 * np.sin(q * 7 + seed)), cy + np.sin(q) * r) for q in np.linspace(0, 2 * np.pi, 72)[:-1]]
@@ -404,7 +415,7 @@ def bg_collage(seed=91):
     for i, (name, spec) in enumerate(COLLAGE_HOLDERS.items()):
         kind = spec[0]
         geom = spec[1:4] if kind == "circle" else spec[1:5]
-        img = paper_piece(img, kind, geom, spec[-1], 700 + i * 10, 0.30 if name != "date" else 0.15)
+        img = paper_piece(img, kind, geom, spec[-2], 700 + i * 10, 0.30 if name != "date" else 0.15, spec[-1])
     return to_image(vignette(img, 0.06))
 
 

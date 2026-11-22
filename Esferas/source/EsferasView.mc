@@ -23,41 +23,31 @@ class EsferasView extends WatchUi.WatchFace {
     function loadSettings() as Void {
         var t = null;
         try { t = Application.Properties.getValue("Theme"); } catch (ex) {}
-        theme = t instanceof Number && t >= 0 && t <= 2 ? t : 0;
+        theme = t instanceof Number && t >= 0 && t <= 4 ? t : 0;
         loadArt();
     }
 
     function onLayout(dc as Graphics.Dc) as Void {
-        themes = new Themes(WatchUi.loadResource(Rez.Fonts.Time), WatchUi.loadResource(Rez.Fonts.Data),
-            WatchUi.loadResource(Rez.Fonts.Label));
+        themes = new Themes(WatchUi.loadResource(Rez.Fonts.Time), WatchUi.loadResource(Rez.Fonts.Timem),
+            WatchUi.loadResource(Rez.Fonts.Data), WatchUi.loadResource(Rez.Fonts.Label));
         loadArt();
     }
 
-    // Solo se carga la pintura del estilo activo (y las pinceladas si es Trazos).
+    // Solo se carga la obra del estilo activo (y la retícula si es Retícula).
     function loadArt() as Void {
         var t = themes;
         if (t == null) { return; }
         t.bg = null;
-        t.strokes = [];
+        t.grid = null;
         try {
-            if (theme == 1) {
-                t.bg = WatchUi.loadResource(Rez.Drawables.BgOrganica);
-            } else if (theme == 2) {
-                t.bg = WatchUi.loadResource(Rez.Drawables.BgTrazos);
-                t.strokes = [
-                    [WatchUi.loadResource(Rez.Drawables.Stroke0), WatchUi.loadResource(Rez.Drawables.Tip0)],
-                    [WatchUi.loadResource(Rez.Drawables.Stroke1), WatchUi.loadResource(Rez.Drawables.Tip1)],
-                    [WatchUi.loadResource(Rez.Drawables.Stroke2), WatchUi.loadResource(Rez.Drawables.Tip2)],
-                    [WatchUi.loadResource(Rez.Drawables.Stroke3), WatchUi.loadResource(Rez.Drawables.Tip3)],
-                    [WatchUi.loadResource(Rez.Drawables.Stroke4), WatchUi.loadResource(Rez.Drawables.Tip4)]
-                ];
-            } else {
-                t.bg = WatchUi.loadResource(Rez.Drawables.BgCampos);
-            }
+            var ids = [Rez.Drawables.BgCintaVerde, Rez.Drawables.BgCintaAmbar, Rez.Drawables.BgBloques,
+                Rez.Drawables.BgReticula, Rez.Drawables.BgCollage];
+            t.bg = WatchUi.loadResource(ids[theme]);
+            if (theme == 3) { t.grid = WatchUi.loadResource(Rez.Drawables.Grid); }
         } catch (ex) {
-            // Sin memoria para la pintura: la esfera sigue funcionando con fondo liso.
+            // Sin memoria para la obra: la esfera sigue funcionando con fondo liso.
             t.bg = null;
-            t.strokes = [];
+            t.grid = null;
         }
     }
 
@@ -66,17 +56,12 @@ class EsferasView extends WatchUi.WatchFace {
         Draw.k = w / 390.0;
         var t = themes;
         if (t == null) { return; }
-        if (w != lastWidth) { t.resetCache(); lastWidth = w; }
         if (dc has :setAntiAlias) { dc.setAntiAlias(true); }
         data.update();
         if (sleeping && burnIn) {
             t.aod(dc, data, System.getClockTime().min);
-        } else if (theme == 1) {
-            t.organica(dc, data);
-        } else if (theme == 2) {
-            t.trazos(dc, data);
         } else {
-            t.campos(dc, data);
+            t.draw(dc, theme, data);
         }
     }
 

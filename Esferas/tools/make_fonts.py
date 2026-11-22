@@ -18,6 +18,7 @@ BASE = 390
 UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÑÜ"
 FONTS = [
     ("time", 124, 250, "0123456789:", 0, True),
+    ("timem", 88, 280, "0123456789:", 0, True),
     ("data", 28, 340, "0123456789:°%.,-+/ kmhKMH" + UPPER, 1, True),
     ("label", 19, 460, "0123456789 ·" + UPPER, 5, False),
 ]

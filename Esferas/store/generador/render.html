@@ -6,218 +6,136 @@ body { margin: 0; background: #000; } canvas { display: block; }
 </style></head>
 <body><canvas id="c"></canvas>
 <script>
-// Prototipo de las esferas: mismas primitivas que Graphics.Dc (rectángulos, polígonos,
-// círculos, líneas de 2 px, texto) para que el paso a Monkey C sea directo.
+// Prototipo de las esferas: mismas primitivas y coordenadas que source/Themes.mc (diseño a 390 px).
 const S = 390;
-// Fondos pintados y pinceladas (los mismos PNG que usa el reloj a 390 px).
-const IMG = {};
-window.loadArt = () => Promise.all(['bg_campos','bg_organica','bg_trazos',
-  ...[0,1,2,3,4].flatMap(i => ['stroke'+i, 'tip'+i])].map(n => new Promise(ok => {
-    const im = new Image(); im.onload = () => { IMG[n] = im; ok(); }; im.src = '../../resources/paint/' + n + '.png'; })));
-function bgImage(n){ dc.drawImage(IMG['bg_' + n], 0, 0, S*k, S*k); }
-function brushStroke(cx, base, frac, v){
-  const body = IMG['stroke' + v], tip = IMG['tip' + v], w = body.width, hMax = body.height, tipH = tip.height;
-  const h = Math.trunc(tipH + 4 + (hMax - tipH - 10) * frac), x = cx - Math.trunc(w / 2), top = base - h;
-  dc.save(); dc.beginPath(); dc.rect(x, top + tipH, w, h - tipH + hMax); dc.clip();
-  dc.drawImage(body, x, base - hMax + P(6)); dc.restore();
-  dc.drawImage(tip, x, top);
-}
 const F = {
   time:  { size: 124, weight: 250, track: 0 },
+  timem: { size: 88,  weight: 280, track: 0 },
   data:  { size: 28,  weight: 340, track: 1 },
   label: { size: 19,  weight: 460, track: 5 },
 };
 let dc, k = 1;
 const P = v => Math.round(v * k);
+const IMG = {};
+window.loadArt = () => Promise.all(['bg_cinta_verde','bg_cinta_ambar','bg_bloques','bg_reticula','bg_collage','grid']
+  .map(n => new Promise(ok => { const im = new Image(); im.onload = () => { IMG[n] = im; ok(); }; im.src = '../../resources/paint/' + n + '.png'; })));
 
 function font(f){ return `${f.weight} ${P(f.size)}px Jost`; }
-function textW(t, f){ dc.font = font(f); let w = dc.measureText(t).width; return w + P(f.track) * Math.max(0, t.length - 1); }
-// Texto con la parte superior de las mayúsculas/cifras en y (cap top), como drawTextTop en Monkey C.
+function textW(t, f){ dc.font = font(f); return dc.measureText(t).width + P(f.track) * Math.max(0, t.length - 1); }
 function text(x, y, t, f, col, align = 'c'){
-  dc.font = font(f); dc.fillStyle = col; dc.textBaseline = 'alphabetic';
+  dc.font = font(f); dc.fillStyle = col; dc.textBaseline = 'alphabetic'; dc.textAlign = 'left';
   const cap = P(f.size) * 0.70, w = textW(t, f);
   let sx = align === 'c' ? x - w / 2 : (align === 'r' ? x - w : x);
-  if (!f.track) { dc.textAlign = 'left'; dc.fillText(t, sx, y + cap); return w; }
-  for (const ch of t) { dc.textAlign = 'left'; dc.fillText(ch, sx, y + cap); sx += dc.measureText(ch).width + P(f.track); }
+  for (const ch of t) { dc.fillText(ch, sx, y + cap); sx += dc.measureText(ch).width + P(f.track); }
   return w;
 }
 function rect(x, y, w, h, col){ dc.fillStyle = col; dc.fillRect(x, y, w, h); }
 function rrect(x, y, w, h, r, col){ dc.fillStyle = col; dc.beginPath(); dc.roundRect(x, y, w, h, r); dc.fill(); }
 function poly(pts, col){ dc.fillStyle = col; dc.beginPath(); dc.moveTo(...pts[0]); for (const p of pts.slice(1)) dc.lineTo(...p); dc.closePath(); dc.fill(); }
 function circle(x, y, r, col){ dc.fillStyle = col; dc.beginPath(); dc.arc(x, y, r, 0, 7); dc.fill(); }
-function ring(x, y, r, col, lw = 2){ dc.strokeStyle = col; dc.lineWidth = lw; dc.beginPath(); dc.arc(x, y, r, 0, 7); dc.stroke(); }
-function line(x1, y1, x2, y2, col, lw = 2){ dc.strokeStyle = col; dc.lineWidth = lw; dc.lineCap = 'round'; dc.beginPath(); dc.moveTo(x1, y1); dc.lineTo(x2, y2); dc.stroke(); }
-function polyline(pts, col, lw = 2){ for (let i = 1; i < pts.length; i++) line(...pts[i-1], ...pts[i], col, lw); }
+function ring(x, y, r, col){ dc.strokeStyle = col; dc.lineWidth = Math.max(1, P(2)); dc.beginPath(); dc.arc(x, y, r, 0, 7); dc.stroke(); }
+function line(x1, y1, x2, y2, col, lw = 2){ dc.strokeStyle = col; dc.lineWidth = Math.max(1, P(lw)); dc.lineCap = 'round'; dc.beginPath(); dc.moveTo(x1, y1); dc.lineTo(x2, y2); dc.stroke(); }
+function art(n){ dc.drawImage(IMG['bg_' + n], 0, 0, S*k, S*k); }
 
-// ---- Iconos: trazo uniforme de 2 px, caja de 'sz' px ----
-function icon(kind, x, y, sz, col, bg){
-  const s = sz, h = s / 2;
+// ---- Iconos (igual que Draw.mc) ----
+function icon(kind, x, y, s, col, bg){
+  const h = s / 2;
   if (kind === 'sunrise' || kind === 'sunset'){
-    const cy = y + s * 0.70;
+    const cx = x + h, cy = y + s * 0.70;
     line(x, cy, x + s, cy, col);
-    // medio sol
-    dc.strokeStyle = col; dc.lineWidth = 2; dc.beginPath(); dc.arc(x + h, cy, s * 0.26, Math.PI, 0); dc.stroke();
-    for (const a of [-150, -120, -90, -60, -30]){ const r = a * Math.PI / 180;
-      line(x + h + Math.cos(r) * s * 0.38, cy + Math.sin(r) * s * 0.38, x + h + Math.cos(r) * s * 0.50, cy + Math.sin(r) * s * 0.50, col); }
-    const ay = kind === 'sunrise' ? y + s * 0.92 : y + s * 0.84, dir = kind === 'sunrise' ? -1 : 1;
-    line(x + h - s*0.12, ay - dir * s*0.06, x + h, ay + dir * s*0.06, col); line(x + h + s*0.12, ay - dir * s*0.06, x + h, ay + dir * s*0.06, col);
-    return;
+    dc.strokeStyle = col; dc.lineWidth = Math.max(1, P(2)); dc.beginPath(); dc.arc(cx, cy, s * 0.26, Math.PI, 0); dc.stroke();
+    for (const a of [30, 60, 90, 120, 150]){ const r = a * Math.PI / 180;
+      line(cx + Math.cos(r)*s*0.38, cy - Math.sin(r)*s*0.38, cx + Math.cos(r)*s*0.5, cy - Math.sin(r)*s*0.5, col); }
+    const ay = y + s * (kind === 'sunrise' ? 0.92 : 0.84), d = s * 0.06 * (kind === 'sunrise' ? -1 : 1), dx = s * 0.12;
+    line(cx - dx, ay - d, cx, ay + d, col); line(cx + dx, ay - d, cx, ay + d, col); return;
   }
-  if (kind === 'drop'){
-    const cx = x + h, r = s * 0.27;
-    poly([[cx, y + s*0.08], [cx + r, y + s*0.58], [cx - r, y + s*0.58]], col);
-    circle(cx, y + s*0.62, r, col); return;
+  if (kind === 'drop'){ const cx = x + h, r = s * 0.27;
+    poly([[cx, y + s*0.08], [cx + r, y + s*0.58], [cx - r, y + s*0.58]], col); circle(cx, y + s*0.62, r, col); return; }
+  if (kind === 'steps'){ dc.fillStyle = col;
+    dc.beginPath(); dc.ellipse(x + s*0.30, y + s*0.40, s*0.13, s*0.22, 0, 0, 7); dc.fill(); circle(x + s*0.30, y + s*0.76, s*0.08, col);
+    dc.beginPath(); dc.ellipse(x + s*0.70, y + s*0.30, s*0.13, s*0.22, 0, 0, 7); dc.fill(); circle(x + s*0.70, y + s*0.66, s*0.08, col); return; }
+  if (kind === 'battery'){ // cuerpo + polo + nivel
+    const bw = s, bh = s * 0.5, by = y + s * 0.28;
+    rrect(x, by, bw * 0.9, bh, s*0.08, col); rrect(x + P(2), by + P(2), bw * 0.9 - P(4), bh - P(4), s*0.05, bg);
+    rect(x + bw * 0.9, by + bh * 0.3, bw * 0.1, bh * 0.4, col);
+    rect(x + P(3.5), by + P(3.5), (bw * 0.9 - P(7)) * window.__batt, bh - P(7), col); return; }
+  if (kind === 'sun' || kind === 'partly'){
+    const sun = kind === 'sun', cx = x + s*(sun ? 0.5 : 0.64), cy = y + s*(sun ? 0.5 : 0.34), r = s*(sun ? 0.2 : 0.15);
+    ring(cx, cy, r, col);
+    for (let i = 0; i < 8; i++){ const a = i*Math.PI/4; line(cx + Math.cos(a)*r*1.55, cy + Math.sin(a)*r*1.55, cx + Math.cos(a)*r*2.1, cy + Math.sin(a)*r*2.1, col); }
+    if (sun) return;
   }
-  if (kind === 'steps'){
-    dc.fillStyle = col;
-    dc.beginPath(); dc.ellipse(x + s*0.30, y + s*0.40, s*0.13, s*0.22, 0, 0, 7); dc.fill();
-    circle(x + s*0.30, y + s*0.76, s*0.08, col);
-    dc.beginPath(); dc.ellipse(x + s*0.70, y + s*0.30, s*0.13, s*0.22, 0, 0, 7); dc.fill();
-    circle(x + s*0.70, y + s*0.66, s*0.08, col); return;
-  }
-  if (kind === 'cloud' || kind === 'rain' || kind === 'snow' || kind === 'sun' || kind === 'partly'){
-    if (kind === 'sun' || kind === 'partly'){
-      const cx = kind === 'sun' ? x + h : x + s*0.64, cy = kind === 'sun' ? y + h : y + s*0.34, r = s * (kind === 'sun' ? 0.20 : 0.15);
-      ring(cx, cy, r, col);
-      for (let i = 0; i < 8; i++){ const a = i * Math.PI / 4; line(cx + Math.cos(a)*r*1.55, cy + Math.sin(a)*r*1.55, cx + Math.cos(a)*r*2.1, cy + Math.sin(a)*r*2.1, col); }
-      if (kind === 'sun') return;
-    }
-    // nube: silueta en color y la misma silueta 2 px más pequeña en el fondo
-    const by = (kind === 'rain' || kind === 'snow') ? y + s*0.60 : y + s*0.74, w2 = Math.max(1, P(2));
-    const parts = [[0.30,-0.14,0.17],[0.55,-0.22,0.22],[0.76,-0.12,0.14]];
-    for (const pass of [0, 1]) { const c = pass ? bg : col, ins = pass ? w2 : 0;
-      for (const q of parts) circle(x + s*q[0], by + s*q[1], s*q[2] - ins, c);
-      const lx = x + s*0.13 + ins, rx = x + s*0.90 - ins, top = by - s*0.16;
-      rrect(lx, top + ins, rx - lx, by - top - 2*ins + (pass ? 0 : 2), s*0.12, c); }
-    if (kind === 'rain') for (const fx of [0.34, 0.54, 0.74]) line(x + s*fx, by + s*0.14, x + s*(fx-0.07), by + s*0.32, col);
-    if (kind === 'snow') for (const fx of [0.34, 0.54, 0.74]) circle(x + s*(fx-0.03), by + s*0.24, s*0.05 + 1, col);
-    return;
-  }
-}
-
-// Luna con su fase real: disco en sombra + parte iluminada (semicírculo + terminador elíptico).
-function moon(cx, cy, r, illum, waxing, lit, dark){
-  circle(cx, cy, r, dark);
-  const pts = [], side = waxing ? 1 : -1, tx = r * (1 - 2 * illum);  // terminador
-  for (let i = 0; i <= 16; i++){ const a = -Math.PI/2 + Math.PI * i / 16; pts.push([cx + side * Math.cos(a) * r, cy + Math.sin(a) * r]); }
-  for (let i = 16; i >= 0; i--){ const a = -Math.PI/2 + Math.PI * i / 16; pts.push([cx + side * Math.cos(a) * tx, cy + Math.sin(a) * r]); }
-  poly(pts, lit);
+  const by = (kind === 'rain' || kind === 'snow') ? y + s*0.60 : y + s*0.74, w2 = Math.max(1, P(2));
+  for (const pass of [0, 1]) { const c = pass ? bg : col, ins = pass ? w2 : 0;
+    for (const q of [[0.30,-0.14,0.17],[0.55,-0.22,0.22],[0.76,-0.12,0.14]]) circle(x + s*q[0], by + s*q[1], s*q[2] - ins, c);
+    const lx = x + s*0.13 + ins, rx = x + s*0.90 - ins, top = by - s*0.16;
+    rrect(lx, top + ins, rx - lx, by - top - 2*ins + (pass ? 0 : 2), s*0.12, c); }
+  if (kind === 'rain') for (const fx of [0.34, 0.54, 0.74]) line(x + s*fx, by + s*0.14, x + s*(fx-0.07), by + s*0.32, col);
+  if (kind === 'snow') for (const fx of [0.34, 0.54, 0.74]) circle(x + s*(fx-0.03), by + s*0.24, s*0.05 + 1, col);
 }
 
 const fmtSteps = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-// =================== 1. CAMPOS (Rothko) ===================
-// Cada banda: varias capas anidadas con tonos muy próximos → borde difuso, como pintura.
-function band(y0, y1, cols){
-  cols.forEach((c, i) => rrect(P(-30 + i*6), P(y0 + i*3), P(450 - i*12), P(y1 - y0 - i*6), P(14), c));
-}
-function campos(d){
-  bgImage('campos');
-  const cream = '#EFE4CB', soft = '#B4AC9A', warm = '#F7E9D2', ink = '#3A2A20';
-  text(P(195), P(58), d.date, F.label, soft);
-  text(P(195), P(86), d.time, F.time, cream);
-  weatherRow(P(195), P(188), d, cream, soft, '#1C2640');
-  // Banda óxido: amanecer · línea del día con el sol en su sitio · atardecer
-  const y = P(258), ic = P(24);
-  icon('sunrise', P(52), y - P(3), ic, warm); text(P(82), y, d.sunrise, F.data, warm, 'l');
-  text(P(308), y, d.sunset, F.data, warm, 'r'); icon('sunset', P(314), y - P(3), ic, warm);
-  const x0 = P(166), x1 = P(224), ly = y + P(10);
-  line(x0, ly, x1, ly, '#E3967A');
-  circle(x0 + (x1 - x0) * d.dayFrac, ly, P(5), warm);
-  // Banda crema: pasos · luna
-  icon('steps', P(96), P(330), P(22), ink); text(P(126), P(330), fmtSteps(d.steps), F.data, ink, 'l');
-  moon(P(246), P(343), P(11), d.moonIllum, d.waxing, ink, '#CDBB98');
-  text(P(265), P(330), Math.round(d.moonIllum * 100) + '%', F.data, ink, 'l');
-}
-
-function weatherRow(cx, y, d, col, soft, bg){
-  const ic = P(26), gap = P(8), sep = P(24);
-  const t1 = d.temp + '°', t2 = d.precip + '%';
-  const w = ic + gap + textW(t1, F.data) + sep + P(14) + gap + textW(t2, F.data);
+// Fila de complicaciones: [icono, texto] centrados como un bloque, separados por aire.
+function row(cx, y, items, col, iconCol, bg, ic = 24){
+  const gap = P(7), sep = P(22), s = P(ic);
+  let w = -sep; for (const it of items) w += s + gap + textW(it[1], F.data) + sep;
   let x = cx - w / 2;
-  icon(d.cond, x, y - P(4), ic, col, bg); x += ic + gap;
-  x += text(x, y, t1, F.data, col, 'l') + sep;
-  icon('drop', x, y + P(2), P(14), soft); x += P(14) + gap;
-  text(x, y, t2, F.data, col, 'l');
+  for (const it of items){ icon(it[0], x, y - P(2), s, iconCol, bg); x += s + gap; x += text(x, y, it[1], F.data, col, 'l') + sep; }
+}
+function sunItem(d){ return d.nextSun === 'sunrise' ? ['sunrise', d.sunrise] : ['sunset', d.sunset]; }
+
+// =================== CINTA ===================
+function cinta(d, verde){
+  art(verde ? 'cinta_verde' : 'cinta_ambar');
+  const ink = verde ? '#1E2620' : '#2A1C11', soft = verde ? '#5E665E' : '#86735F', bg = verde ? '#D4CFC3' : '#EEEAE3';
+  text(P(195), P(50), d.date, F.label, soft);
+  text(P(195), P(72), d.time, F.time, ink);
+  row(P(195), P(178), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)], ['battery', d.battery + '%']], ink, soft, bg);
+  const s = sunItem(d); row(P(195), P(214), [s], soft, soft, bg, 20);
 }
 
-// =================== 2. ORGÁNICA ===================
-function spline(pts, closed, steps){
-  const out = [], n = pts.length, last = closed ? n : n - 1;
-  for (let i = 0; i < last; i++){
-    const g = j => closed ? pts[(j + n) % n] : pts[Math.max(0, Math.min(n - 1, j))];
-    const p0 = g(i-1), p1 = g(i), p2 = g(i+1), p3 = g(i+2);
-    for (let s = 0; s < steps; s++){ const t = s / steps, t2 = t*t, t3 = t2*t;
-      out.push([0,1].map(j => P(0.5*((2*p1[j]) + (-p0[j]+p2[j])*t + (2*p0[j]-5*p1[j]+4*p2[j]-p3[j])*t2 + (-p0[j]+3*p1[j]-3*p2[j]+p3[j])*t3)))); }
-  }
-  if (!closed) out.push(pts[n-1].map(P));
-  return out;
-}
-function blob(pts, col){ poly(spline(pts, true, 6), col); }
-function curve(pts, col){ polyline(spline(pts, false, 8), col, Math.max(2, P(2))); }
-function organica(d){
-  const bg = '#4E1420';
-  bgImage('organica');
-  const cream = '#F2E6D2', soft = '#D2B4AE';
-  text(P(195), P(52), d.date, F.label, cream);
-  text(P(195), P(80), d.time, F.time, cream);
-  weatherRow(P(195), P(184), d, cream, soft, bg);
-  const y = P(224), ic = P(22), sw = ic + P(8) + textW(d.sunrise, F.data);
-  icon('sunrise', P(195) - P(18) - sw, y - P(2), ic, soft); text(P(195) - P(18) - sw + ic + P(8), y, d.sunrise, F.data, cream, 'l');
-  icon('sunset', P(195) + P(18), y - P(2), ic, soft); text(P(195) + P(18) + ic + P(8), y, d.sunset, F.data, cream, 'l');
-  // Abajo: pasos sobre el azul noche, luna sobre la crema.
-  icon('steps', P(70), P(300), P(20), '#E9DCC4'); text(P(96), P(300), fmtSteps(d.steps), F.data, '#E9DCC4', 'l');
-  moon(P(236), P(313), P(11), d.moonIllum, d.waxing, '#2A1A14', '#CDB999');
-  text(P(254), P(300), Math.round(d.moonIllum * 100) + '%', F.data, '#2A1A14', 'l');
+// =================== BLOQUES ===================
+function bloques(d){
+  art('bloques');
+  const cream = '#F0E4D6', dark = '#3A1E18';
+  row(P(193), P(102), [[d.cond, d.temp + '°']], cream, cream, '#7A2C2E', 24);
+  row(P(312), P(102), [['battery', d.battery + '%']], cream, cream, '#4A161A', 22);
+  text(P(250), P(166), d.date, F.label, '#B9B2A8');
+  text(P(250), P(194), d.time, F.timem, '#F2EBE1');
+  icon('steps', P(58), P(186), P(24), dark);
+  text(P(70), P(220), fmtSteps(d.steps), F.data, dark);
+  const s = sunItem(d); row(P(250), P(299), [s], cream, cream, '#A3461C', 18);
 }
 
-// =================== 3. TRAZOS ===================
-function rng(seed){ return () => (seed = (seed * 1103 + 12345) % 65536) / 65536; }
-// Pincelada: cuerpo casi recto, punta redondeada, base deshilachada y una veta más clara.
-function stroke(cx, yb, h, w, col, streak, r){
-  const n = 6, lean = (r() - 0.5) * P(4), pts = [];
-  for (let i = 0; i <= n; i++){ const f = i / n, half = w/2 * (i === n ? 0.55 : 0.9 + 0.1*r());
-    pts.push([cx - half + lean*f, yb - h*f]); }
-  for (let i = n; i >= 0; i--){ const f = i / n, half = w/2 * (i === n ? 0.55 : 0.9 + 0.1*r());
-    pts.push([cx + half + lean*f, yb - h*f]); }
-  pts.push([cx + w*0.25, yb + P(2) + r()*P(4)], [cx - w*0.1, yb + r()*P(3)], [cx - w*0.4, yb + P(1) + r()*P(4)]);
-  poly(pts, col);
-  line(cx - w*0.15 + lean*0.2, yb - h*0.15, cx - w*0.15 + lean*0.8, yb - h*0.8, streak, Math.max(1, P(1.5)));
-}
-function trazos(d){
-  const paper = '#EEE6D6', ink = '#1C1B19', soft = '#6E675C';
-  bgImage('trazos');
-  // Pinceladas = pasos: 7 días anteriores + hoy (la clara). Altura relativa al objetivo.
-  const vals = [...d.history, d.steps], goal = Math.max(d.goal, ...vals), first = 8 - vals.length;
-  vals.forEach((v, i) => brushStroke(P(80 + (first + i) * 19), P(376), Math.min(1, v / goal), i === vals.length - 1 ? 4 : (first + i) % 4));
-  // Curva del sol por encima, escalada a altura fija.
-  const xs = P(24), xe = P(366), yh = P(304), peak = Math.max(1, ...d.sunCurve), pxd = 58 * k / peak, X = f => xs + (xe - xs) * f;
-  line(xs, yh, xe, yh, '#B9AE9B', Math.max(1, P(1.5)));
-  const day = [[X(d.riseFrac), yh]];
-  d.sunCurve.forEach((e, i) => { if (e >= 0) day.push([X(i / (d.sunCurve.length - 1)), yh - e * pxd]); });
-  day.push([X(d.setFrac), yh]);
-  polyline(day, ink, Math.max(2, P(2)));
-  if (d.sunNow > 0) { circle(X(d.dayPos), yh - d.sunNow * pxd, P(8), paper); circle(X(d.dayPos), yh - d.sunNow * pxd, P(6), '#E07A2E'); }
-  text(P(195), P(46), d.date, F.label, ink);
-  text(P(195), P(70), d.time, F.time, ink);
-  // Tiempo · lluvia · luna
-  { const y = P(170), ic = P(26), gap = P(8), sep = P(22), drop = P(14), mr = P(9), mt = Math.round(d.moonIllum * 100) + '%';
-    const t1 = d.temp + '°', t2 = d.precip + '%';
-    const w = ic + gap + textW(t1, F.data) + sep + drop + gap + textW(t2, F.data) + sep + 2*mr + gap + textW(mt, F.data);
-    let x = P(195) - w / 2;
-    icon(d.cond, x, y - P(4), ic, ink, paper); x += ic + gap;
-    x += text(x, y, t1, F.data, ink, 'l') + sep;
-    icon('drop', x, y + P(2), drop, soft); x += drop + gap;
-    x += text(x, y, t2, F.data, ink, 'l') + sep;
-    moon(x + mr, y + P(10), mr, d.moonIllum, d.waxing, ink, '#CFC4AE'); x += 2*mr + gap;
-    text(x, y, mt, F.data, ink, 'l'); }
-  { const y = P(208), ic = P(22), sw = ic + P(8) + textW(d.sunrise, F.data), xr = P(195) - P(18) - sw;
-    icon('sunrise', xr, y - P(2), ic, soft); text(xr + ic + P(8), y, d.sunrise, F.data, soft, 'l');
-    icon('sunset', P(195) + P(18), y - P(2), ic, soft); text(P(195) + P(18) + ic + P(8), y, d.sunset, F.data, soft, 'l'); }
-  icon('steps', P(230), P(312), P(18), ink); text(P(253), P(312), fmtSteps(d.steps), F.data, ink, 'l');
+// =================== RETÍCULA ===================
+function reticula(d){
+  art('reticula');
+  const ink = '#1C1A17', soft = '#6B655C', paper = '#EDE9E1';
+  text(P(195), P(30), d.date, F.label, ink);
+  text(P(195), P(54), d.time, F.timem, ink);
+  const s = sunItem(d);
+  row(P(195), P(124), [[d.cond, d.temp + '°'], ['battery', d.battery + '%'], s], soft, soft, paper, 20);
+  // Retícula = pasos: cada casilla es el 1 % del objetivo.
+  const n = Math.min(100, Math.floor(d.steps / d.goal * 100)), g = IMG.grid;
+  const gx = P(105), gy = P(150), pitch = 18 * k, rows = Math.floor(n / 10), rem = n % 10;
+  dc.save(); dc.beginPath();
+  dc.rect(gx, gy, g.width, rows * pitch); dc.rect(gx, gy + rows * pitch, rem * pitch, pitch);
+  dc.clip(); dc.drawImage(g, gx, gy); dc.restore();
+  text(P(195), P(338), fmtSteps(d.steps) + ' PASOS', F.label, ink);
 }
 
-// =================== Siempre encendida (AMOLED) ===================
+// =================== COLLAGE ===================
+function collage(d){
+  art('collage');
+  const ink = '#24211E', soft = '#857A6B', paper = '#F4EEE2';
+  text(P(195), P(110), d.date, F.label, soft);
+  text(P(195), P(134), d.time, F.timem, ink);
+  line(P(150), P(210), P(240), P(210), '#D6CCBB', 1);
+  row(P(195), P(224), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)]], ink, soft, paper, 22);
+  const s = sunItem(d); row(P(195), P(260), [['battery', d.battery + '%'], s], soft, soft, paper, 20);
+}
+
 function aod(d){
   rect(0, 0, S*k, S*k, '#000');
   text(P(195), P(120), d.time, F.time, '#9A9A9A');
@@ -226,8 +144,8 @@ function aod(d){
 
 window.render = (theme, d, size = 390) => {
   const cv = document.getElementById('c'); cv.width = cv.height = size; k = size / S;
-  dc = cv.getContext('2d');
-  ({ campos, organica, trazos, aod })[theme](d);
+  dc = cv.getContext('2d'); window.__batt = d.battery / 100;
+  ({ cinta_verde: d => cinta(d, true), cinta_ambar: d => cinta(d, false), bloques, reticula, collage, aod })[theme](d);
   dc.globalCompositeOperation = 'destination-in'; dc.beginPath(); dc.arc(size/2, size/2, size/2, 0, 7); dc.fill();
   dc.globalCompositeOperation = 'source-over';
 };

@@ -113,6 +113,24 @@ module Draw {
         dc.fillCircle(x + (s * 0.70).toNumber(), y + (s * 0.66).toNumber(), h);
     }
 
+    // Batería: contorno, polo y nivel de carga.
+    function iconBattery(dc as Graphics.Dc, x, y, s, color, bg, level) as Void {
+        var bw = (s * 0.9).toNumber();
+        var bh = (s * 0.5).toNumber();
+        var by = y + (s * 0.28).toNumber();
+        var w = p(2);
+        if (w < 1) { w = 1; }
+        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+        dc.fillRoundedRectangle(x, by, bw, bh, (s * 0.08).toNumber());
+        dc.fillRectangle(x + bw, by + (bh * 0.3).toNumber(), (s * 0.1).toNumber() + 1, (bh * 0.4).toNumber() + 1);
+        dc.setColor(bg, Graphics.COLOR_TRANSPARENT);
+        dc.fillRoundedRectangle(x + w, by + w, bw - 2 * w, bh - 2 * w, (s * 0.05).toNumber());
+        var inner = bw - 2 * w - 2 * w;
+        var lv = level < 0 ? 0 : (level > 100 ? 100 : level);
+        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(x + 2 * w, by + 2 * w, (inner * lv / 100.0).toNumber(), bh - 4 * w);
+    }
+
     // Nube con contorno: silueta en color y la misma silueta, 2 px más pequeña, en el fondo.
     function cloud(dc as Graphics.Dc, x, y, s, color, bg, base) as Void {
         var w = (2 * k + 0.5).toNumber();

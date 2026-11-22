@@ -1,7 +1,9 @@
 <strings>
     <string id="AppName">Esferas Pintadas</string>
-    <string id="ThemeTitle">Estilo</string>
-    <string id="Theme0">Campos de color</string>
-    <string id="Theme1">Orgánica</string>
-    <string id="Theme2">Trazos</string>
+    <string id="ThemeTitle">Obra</string>
+    <string id="Theme0">Cinta verde</string>
+    <string id="Theme1">Cinta ámbar</string>
+    <string id="Theme2">Bloques</string>
+    <string id="Theme3">Retícula (pasos)</string>
+    <string id="Theme4">Collage</string>
 </strings>

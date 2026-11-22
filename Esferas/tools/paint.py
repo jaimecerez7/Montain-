@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Pinta los fondos y las pinceladas de las esferas (texturas de lienzo, pincel seco, tinta).
+"""Pinta las obras de las esferas: Cinta (verde y ámbar), Bloques, Retícula y Collage.
 
 Uso: python3 -I tools/paint.py [carpeta_de_vista_previa]   (desde la carpeta Esferas)
 
-Todo se pinta una vez a 908 px (2 × 454) en coordenadas de diseño de 390 px y se reduce
-a cada resolución, de modo que la textura es la misma en todos los relojes.
+Todo se pinta a 908 px (2 × 454) en coordenadas de diseño de 390 px y se reduce a cada
+resolución de reloj: la obra es la misma en todos los modelos.
 """
 import pathlib
 import sys
@@ -16,54 +16,23 @@ N = 908
 K = N / 390.0
 SIZES = {390: "resources", 260: "resources-round-260x260", 280: "resources-round-280x280",
          416: "resources-round-416x416", 454: "resources-round-454x454"}
+yy, xx = np.mgrid[0:N, 0:N].astype(np.float32) / K
 
-yy, xx = np.mgrid[0:N, 0:N].astype(np.float32) / K   # coordenadas de diseño (0..390)
 
-
-# ---------------------------------------------------------------- ruido
-def noise(cells_x, cells_y, seed, n=N):
+# ------------------------------------------------------------------ utilidades
+def noise(cx, cy, seed, n=N):
     rng = np.random.default_rng(seed)
-    small = (rng.random((cells_y, cells_x)) * 255).astype(np.uint8)
+    small = (rng.random((cy, cx)) * 255).astype(np.uint8)
     return np.asarray(Image.fromarray(small).resize((n, n), Image.BICUBIC), np.float32) / 255.0
 
 
 def fbm(cells, seed, octaves=4):
-    out = np.zeros((N, N), np.float32)
-    amp, total = 1.0, 0.0
+    out, amp, tot = np.zeros((N, N), np.float32), 1.0, 0.0
     for i in range(octaves):
-        c = cells * 2 ** i
-        out += amp * noise(c, c, seed + i)
-        total += amp
+        out += amp * noise(cells * 2 ** i, cells * 2 ** i, seed + i)
+        tot += amp
         amp *= 0.5
-    return out / total
-
-
-def streaks(seed, horizontal=True, along=26, across=190):
-    """Vetas de pincel: ruido estirado en una dirección."""
-    return noise(along, across, seed) if horizontal else noise(across, along, seed)
-
-
-_marks_cache = {}
-
-
-def brush_marks(seed, angle=0.0, spread=22.0, count=2400, length=(10, 42), width=(2.0, 7.0)):
-    """Campo de tono hecho con miles de toques cortos de pincel (0..1)."""
-    key = (seed, angle, spread, count)
-    if key in _marks_cache:
-        return _marks_cache[key]
-    rng = np.random.default_rng(seed)
-    m = Image.new("L", (N, N), 128)
-    d = ImageDraw.Draw(m)
-    for _ in range(count):
-        x, y = rng.random() * 430 - 20, rng.random() * 430 - 20
-        a = np.radians(angle + (rng.random() - 0.5) * 2 * spread)
-        L = rng.uniform(*length)
-        w = rng.uniform(*width) * K
-        v = int(128 + (rng.random() - 0.5) * 2 * 110)
-        d.line([(x * K, y * K), ((x + np.cos(a) * L) * K, (y + np.sin(a) * L) * K)], fill=v, width=int(w))
-    out = np.asarray(m.filter(ImageFilter.GaussianBlur(1.2 * K)), np.float32) / 255.0
-    _marks_cache[key] = out
-    return out
+    return out / tot
 
 
 def hexrgb(h):
@@ -71,48 +40,40 @@ def hexrgb(h):
     return np.array([int(h[i:i + 2], 16) for i in (0, 2, 4)], np.float32) / 255.0
 
 
-def smooth(edge0, edge1, x):
-    t = np.clip((x - edge0) / (edge1 - edge0), 0, 1)
+def smooth(a, b, x):
+    t = np.clip((x - a) / (b - a), 0, 1)
     return t * t * (3 - 2 * t)
 
 
-# ---------------------------------------------------------------- pintura
-def paint_fill(color, seed, var=0.10, streak=0.07, second=None, horizontal=True, relief=0.05):
-    """Campo de color: variación de tono, toques cortos de pincel, veladuras de un segundo
-    pigmento y un relieve sutil (luz rasante sobre las vetas)."""
-    c = hexrgb(color)
-    f = fbm(3, seed)
-    s = brush_marks(seed + 50, 0.0 if horizontal else 90.0)
-    dab = fbm(14, seed + 60, 2)
-    img = c[None, None, :] * (1 + var * (f[..., None] - 0.5) * 2 + streak * (s[..., None] - 0.5) * 2
-                              + 0.05 * (dab[..., None] - 0.5) * 2)
-    if second is not None:
-        mix = smooth(0.52, 0.80, fbm(3, seed + 90) + 0.25 * (s - 0.5))[..., None] * 0.5
-        img = img * (1 - mix) + hexrgb(second)[None, None, :] * mix
-    if relief:
-        gy, gx = np.gradient(s * 255 / K)
-        img = img * (1 + relief * np.clip(-(gx + gy) * 0.08, -1, 1))[..., None]
-    return img
-
-
-def over(base, color_img, mask):
+def over(base, color, mask):
     m = np.clip(mask, 0, 1)[..., None]
-    return base * (1 - m) + color_img * m
+    return base * (1 - m) + color * m
 
 
-def rect_mask(x0, y0, x1, y1, seed, rough=9.0, soft=2.0, dry=1.0):
-    """Rectángulo pintado: bordes desplazados por ruido y deshilachados en dirección del pincel."""
-    d = (fbm(4, seed) - 0.5) * 2 * rough
-    sh = (brush_marks(seed + 7, 0.0, 15, 1600) - 0.5) * 2 * rough * dry
-    sv = (brush_marks(seed + 8, 90.0, 15, 1600) - 0.5) * 2 * rough * dry
-    top = smooth(y0 - soft, y0 + soft, yy + d + sh)
-    bot = 1 - smooth(y1 - soft, y1 + soft, yy + d - sh)
-    left = smooth(x0 - soft, x0 + soft, xx + d + sv)
-    right = 1 - smooth(x1 - soft, x1 + soft, xx + d - sv)
-    return top * bot * left * right
+def solid(color):
+    return np.broadcast_to(hexrgb(color), (N, N, 3)).copy()
 
 
-def spline(pts, closed=True, steps=24):
+def linen(img, strength=0.10, seed=1):
+    """Lino: hilos horizontales y verticales irregulares + nudos (slubs)."""
+    th = noise(N // 9, N // 2, seed)        # hilos horizontales (variación a lo largo de y)
+    tv = noise(N // 2, N // 9, seed + 1)    # hilos verticales
+    weave = 0.5 * (th + tv) + 0.25 * np.sin(xx * K * 1.6) * np.sin(yy * K * 1.6)
+    slub = smooth(0.82, 0.97, noise(N // 14, N // 3, seed + 2)) * 0.6
+    return img * (1 + strength * (weave - 0.5 + slub * 0.5)[..., None])
+
+
+def mottle(img, amount=0.05, seed=3, cells=4):
+    return img * (1 + amount * (fbm(cells, seed) - 0.5)[..., None] * 2)
+
+
+def rect_mask(x0, y0, x1, y1, seed, rough=2.5, soft=1.2):
+    d = (fbm(10, seed, 3) - 0.5) * 2 * rough
+    return (smooth(x0 - soft, x0 + soft, xx + d) * (1 - smooth(x1 - soft, x1 + soft, xx - d))
+            * smooth(y0 - soft, y0 + soft, yy + d) * (1 - smooth(y1 - soft, y1 + soft, yy - d)))
+
+
+def spline(pts, closed=False, steps=24):
     out, n = [], len(pts)
     last = n if closed else n - 1
     for i in range(last):
@@ -128,166 +89,279 @@ def spline(pts, closed=True, steps=24):
     return out
 
 
-def shape_mask(pts, seed, rough=0.30, blur=3.5):
-    """Forma orgánica con borde de pintura roto."""
+def poly_mask(pts, blur=0.6):
     m = Image.new("L", (N, N), 0)
-    ImageDraw.Draw(m).polygon([(x * K, y * K) for x, y in spline(pts)], fill=255)
-    m = np.asarray(m.filter(ImageFilter.GaussianBlur(blur * K)), np.float32) / 255.0
-    edge = m + rough * (fbm(8, seed) - 0.5) + 0.30 * (brush_marks(seed + 3, 0.0, 40, 1600) - 0.5)
-    return smooth(0.44, 0.56, edge)
-
-
-def ink_line(img, pts, seed, width=1.6, color="#120A0A"):
-    """Línea de tinta a mano: grosor variable a lo largo del trazo."""
-    rng = np.random.default_rng(seed)
-    path = spline(pts, closed=False, steps=60)
-    m = Image.new("L", (N, N), 0)
-    d = ImageDraw.Draw(m)
-    phase = rng.random() * 6
-    for i, (x, y) in enumerate(path):
-        w = width * (0.75 + 0.35 * np.sin(i / 23 + phase) + 0.1 * rng.random()) * K
-        d.ellipse((x * K - w, y * K - w, x * K + w, y * K + w), fill=255)
-    m = np.asarray(m.filter(ImageFilter.GaussianBlur(0.6 * K)), np.float32) / 255.0
-    return over(img, hexrgb(color)[None, None, :], m * 0.92)
-
-
-def canvas(img, strength=0.05, seed=1):
-    """Grano de lienzo: trama fina + ruido."""
-    weave = np.sin(xx * K * 1.9) * np.sin(yy * K * 1.9)
-    grain = noise(N // 2, N // 2, seed) - 0.5
-    return img * (1 + strength * (0.6 * weave + 1.2 * grain)[..., None])
-
-
-def vignette(img, amount=0.18):
-    r = np.sqrt((xx - 195) ** 2 + (yy - 195) ** 2) / 195
-    return img * (1 - amount * smooth(0.55, 1.05, r))[..., None]
+    ImageDraw.Draw(m).polygon([(x * K, y * K) for x, y in pts], fill=255)
+    if blur:
+        m = m.filter(ImageFilter.GaussianBlur(blur * K))
+    return np.asarray(m, np.float32) / 255.0
 
 
 def to_image(img):
     return Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8), "RGB")
 
 
-# ---------------------------------------------------------------- fondos
-def bg_campos():
-    img = paint_fill("#B4461F", 10, var=0.12, second="#C8642B")              # imprimación óxido
-    img = over(img, paint_fill("#1C2640", 20, var=0.14, second="#24304F"),
-               rect_mask(26, -40, 430, 214, 21, rough=8))                      # azul noche
-    img = over(img, paint_fill("#1A2238", 25, var=0.10), rect_mask(-40, -40, 34, 226, 26, rough=5) * 0.55)
-    img = over(img, paint_fill("#BE4A1E", 30, var=0.12, second="#D0602A"),
-               rect_mask(-40, 236, 430, 296, 31, rough=6))                     # banda óxido
-    img = over(img, paint_fill("#E8D9BB", 40, var=0.08, streak=0.05, second="#D9C49C"),
-               rect_mask(56, 306, 368, 430, 41, rough=7))                      # bloque crema
-    img = over(img, paint_fill("#2A1712", 45, var=0.1), rect_mask(-40, 214, 430, 238, 46, rough=4) * 0.35)
-    return to_image(vignette(canvas(img, 0.06, 2), 0.22))
+def vignette(img, amount=0.12):
+    r = np.sqrt((xx - 195) ** 2 + (yy - 195) ** 2) / 195
+    return img * (1 - amount * smooth(0.6, 1.05, r))[..., None]
 
 
-def bg_organica():
-    img = paint_fill("#5C1825", 50, var=0.12, second="#6B2130")
-    img = over(img, paint_fill("#4B111D", 51, var=0.08), rect_mask(60, 70, 332, 252, 52, rough=8) * 0.75)
-    for pts, col, sd in [
-        ([(-40, -40), (122, -40), (112, 26), (62, 90), (-40, 124)], "#8B8A58", 60),
-        ([(-40, 160), (40, 150), (64, 215), (40, 262), (-40, 270)], "#7A5268", 61),
-        ([(-40, 278), (70, 266), (176, 286), (196, 350), (160, 430), (-40, 430)], "#222B42", 62),
-        ([(346, 96), (430, 70), (430, 262), (372, 250), (338, 180)], "#C2571F", 63),
-        ([(210, 280), (300, 264), (430, 286), (430, 430), (196, 430), (192, 338)], "#E5D5B6", 64),
-        ([(170, 372), (226, 352), (264, 430), (146, 430)], "#B04A1C", 65),
-    ]:
-        img = over(img, paint_fill(col, sd, var=0.12, second=None), shape_mask(pts, sd + 1))
-    img = ink_line(img, [(104, -10), (78, 64), (30, 150), (46, 230), (22, 300)], 70)
-    img = ink_line(img, [(430, 258), (370, 268), (330, 326), (300, 372), (284, 430)], 71)
-    return to_image(vignette(canvas(img, 0.06, 3), 0.2))
-
-
-def bg_trazos():
-    img = hexrgb("#EFE7D7")[None, None, :] * (1 + 0.035 * (fbm(5, 80) - 0.5)[..., None] * 2)
-    specks = smooth(0.93, 0.99, noise(N // 3, N // 3, 81))
-    img = img * (1 - 0.06 * specks[..., None])                                 # fibras del papel
-    hill = shape_mask([(200, 300), (262, 262), (338, 246), (430, 258), (430, 430), (212, 430)], 82, rough=0.15, blur=4)
-    rim = np.clip(hill - smooth(0.5, 0.95, np.asarray(Image.fromarray((hill * 255).astype(np.uint8))
-                  .filter(ImageFilter.GaussianBlur(5 * K)), np.float32) / 255.0), 0, 1)
-    img = over(img, paint_fill("#D9CAA9", 83, var=0.10, streak=0.03), hill * 0.9)
-    img = img * (1 - 0.10 * rim[..., None])                                    # borde de acuarela
-    return to_image(vignette(canvas(img, 0.035, 4), 0.10))
-
-
-# ---------------------------------------------------------------- pinceladas
-def brush_stroke(seed, color, width=19.0, length=134.0, tip=16.0):
-    """Pincelada vertical cerda a cerda (pincel seco). Devuelve RGBA a 908 px de escala."""
+# ------------------------------------------------------------------ CINTA
+def ribbon(img, ctrl, colors, seed, width=46.0, twists=2.2):
+    """Cinta escultórica de pincelada, renderizada como nube densa de puntos en el espacio
+    de la cinta (a lo largo × a lo ancho): cada cerda conserva su tono a lo largo de todo el
+    recorrido, la luz gira con la cinta y los tramos posteriores tapan a los anteriores."""
     rng = np.random.default_rng(seed)
-    w = int(width * K) + 8
-    h = int(length * K) + 12
-    alpha = np.zeros((h, w), np.float32)
-    rgb = np.zeros((h, w, 3), np.float32)
-    base = hexrgb(color)
-    nb = 46
-    lean = (rng.random() - 0.5) * 3 * K
-    for i in range(nb):
-        x0 = 4 + (i + rng.random() * 0.8) / nb * width * K
-        thick = (0.9 + rng.random() * 1.1) * K * 0.7
-        edge = abs((i + 0.5) / nb - 0.5) * 2                    # 0 en el centro, 1 en el borde
-        start = 6 + (edge ** 2) * 0.07 * h + rng.random() * 0.025 * h   # punta redondeada
-        end = h - 6 - rng.random() * 0.08 * h                  # base deshilachada
-        load = 0.85 + 0.15 * rng.random()
-        shade = base * (0.86 + 0.24 * rng.random())
-        gaps = noise(1, 40, seed * 100 + i, n=h)[:, 0]
-        for y in range(int(start), int(end)):
-            t = (y - start) / max(1, end - start)
-            a = load * smooth(0.0, 0.04, t) * (1 - 0.5 * smooth(0.75, 1.0, t))
-            dry = 0.55 * smooth(0.62, 1.0, t) + 0.25 * (1 - smooth(0.0, 0.07, t)) + 0.12 * edge
-            a *= smooth(0.10, 0.30, gaps[y] + 0.35 - dry)       # pincel seco solo en los extremos
-            if a <= 0.01:
-                continue
-            x = x0 + lean * (1 - t)
-            xi, xf = int(x), x - int(x)
-            for dx in range(int(np.ceil(thick)) + 1):
-                cov = min(1, max(0, thick - dx)) * (1 - xf if dx == 0 else 1)
-                px = xi + dx
-                if 0 <= px < w and cov > 0:
-                    na = a * cov
-                    alpha[y, px] = alpha[y, px] + na * (1 - alpha[y, px])
-                    rgb[y, px] = shade
-    img = np.dstack([rgb, alpha])
-    return img
+    path = np.array(spline(ctrl, steps=120), np.float32)
+    seg = np.hypot(*np.diff(path, axis=0).T)
+    s_len = np.concatenate([[0], np.cumsum(seg)])
+    step = 0.42 / K
+    s_new = np.arange(0, s_len[-1], step)
+    P = np.stack([np.interp(s_new, s_len, path[:, 0]), np.interp(s_new, s_len, path[:, 1])], 1)
+    t = s_new / s_len[-1]
+    tang = np.gradient(P, axis=0)
+    tang /= np.linalg.norm(tang, axis=1, keepdims=True) + 1e-9
+    nrm = np.stack([-tang[:, 1], tang[:, 0]], 1)
+    phi = 2 * np.pi * twists * t + 0.4
+    taper = 0.35 + 0.65 * np.sin(np.pi * np.clip(t * 1.04, 0, 1)) ** 0.6
+    half = width * (0.20 + 0.80 * np.abs(np.cos(phi))) * taper
+    nk = 520
+    k = np.linspace(-1, 1, nk, dtype=np.float32)
+    # textura de cerdas: tono por cerda (constante a lo largo) + surcos + carga de pintura
+    bristle = 0.84 + 0.26 * rng.random(nk)
+    bristle[rng.random(nk) > 0.88] *= 0.62
+    bristle = np.convolve(bristle, [0.25, 0.5, 0.25], mode="same")
+    load = 0.94 + 0.12 * np.interp(t, np.linspace(0, 1, 60), rng.random(60))
+    shade = 0.5 + 0.5 * np.sin(phi[:, None] + 1.7 * k[None, :])
+    back = (np.cos(phi) < 0)[:, None]
+    shade = np.where(back, shade * 0.42, np.clip(shade * 1.05, 0, 1))
+    dark, mid, light = (hexrgb(c) for c in colors)
+    lo = dark + (mid - dark) * np.clip(shade * 2, 0, 1)[..., None]
+    hi = mid + (light - mid) * np.clip(shade * 2 - 1, 0, 1)[..., None]
+    col = np.where((shade < 0.5)[..., None], lo, hi)
+    col = col * (bristle[None, :, None] * load[:, None, None]) * (1 - 0.22 * k[None, :, None] ** 6)
+    X = P[:, None, 0] + nrm[:, None, 0] * half[:, None] * k[None, :]
+    Y = P[:, None, 1] + nrm[:, None, 1] * half[:, None] * k[None, :]
+    ix = np.clip((X * K).astype(np.int32), 0, N - 1).ravel()
+    iy = np.clip((Y * K).astype(np.int32), 0, N - 1).ravel()
+    inside = ((X > -5) & (X < 395) & (Y > -5) & (Y < 395)).ravel()
+    buf = np.zeros((N, N, 3), np.float32)
+    alpha = np.zeros((N, N), np.float32)
+    buf[iy[inside], ix[inside]] = np.clip(col.reshape(-1, 3)[inside], 0, 1)   # el último tramo gana
+    alpha[iy[inside], ix[inside]] = 1.0
+    rgba = Image.fromarray((np.dstack([buf, alpha]) * 255).astype(np.uint8), "RGBA")
+    arr = np.asarray(rgba.filter(ImageFilter.GaussianBlur(0.35 * K)), np.float32) / 255.0
+    # sombra suave proyectada sobre el lino
+    sh = np.asarray(rgba.split()[3].filter(ImageFilter.GaussianBlur(6 * K)), np.float32) / 255.0
+    dy, dx = int(4 * K), int(3 * K)
+    sh = np.pad(sh, ((dy, 0), (dx, 0)))[:N, :N]
+    img = img * (1 - 0.25 * sh)[..., None]
+    a = np.clip(arr[..., 3] * 1.15, 0, 1)
+    rgb = arr[..., :3] / np.maximum(arr[..., 3:4], 1e-3)
+    return over(img, np.clip(rgb, 0, 1), a)
 
 
-def stroke_sprites(variant, color, out_dir, side, preview=None):
-    full = brush_stroke(200 + variant, color)
-    s = side / N
-    h_full = full.shape[0]
-    im = Image.fromarray((np.clip(full, 0, 1) * 255).astype(np.uint8), "RGBA")
-    W = max(1, round(im.width * s))
-    H = max(1, round(h_full * s))
-    small = im.resize((W, H), Image.LANCZOS)
-    tip_h = max(4, round(22 * K * s))
-    small.save(out_dir / f"stroke{variant}.png")
-    small.crop((0, 0, W, tip_h)).save(out_dir / f"tip{variant}.png")
-    return W, H, tip_h
+def splatter(img, color, seed, region, count=70):
+    """Salpicaduras y latigazos finos de tinta."""
+    rng = np.random.default_rng(seed)
+    m = Image.new("L", (N, N), 0)
+    d = ImageDraw.Draw(m)
+    x0, y0, x1, y1 = region
+    for _ in range(count):
+        x, y = rng.uniform(x0, x1) * K, rng.uniform(y0, y1) * K
+        r = rng.choice([0.6, 0.9, 1.4, 2.2], p=[0.45, 0.3, 0.17, 0.08]) * K
+        d.ellipse((x - r, y - r, x + r, y + r), fill=255)
+    for _ in range(6):
+        x, y = rng.uniform(x0, x1) * K, rng.uniform(y0, y1) * K
+        a = rng.uniform(0, np.pi)
+        L = rng.uniform(14, 40) * K
+        d.line([(x, y), (x + np.cos(a) * L, y + np.sin(a) * L)], fill=200, width=max(1, int(0.5 * K)))
+    mk = np.asarray(m.filter(ImageFilter.GaussianBlur(0.4 * K)), np.float32) / 255.0
+    return over(img, hexrgb(color), mk)
+
+
+def bg_cinta(ground, colors, ink, seed):
+    img = mottle(linen(solid(ground), 0.09, seed), 0.05, seed + 1)
+    ctrl = [(-50, 360), (30, 268), (118, 300), (168, 356), (238, 340), (282, 268), (340, 238), (440, 268)]
+    img = ribbon(img, ctrl, colors, seed + 2, width=44.0, twists=2.6)
+    img = splatter(img, ink, seed + 3, (20, 205, 370, 380))
+    return to_image(vignette(img, 0.10))
+
+
+# ------------------------------------------------------------------ BLOQUES
+BLOCKS = [  # x0, y0, x1, y1, color
+    (-40, -40, 118, 150, "#C68570"), (118, -40, 268, 150, "#7A2C2E"), (268, -40, 430, 150, "#4A161A"),
+    (-40, 150, 118, 296, "#D7A283"), (118, 150, 430, 296, "#2D2F2D"),
+    (-40, 296, 118, 322, "#161615"), (118, 296, 430, 322, "#A3461C"), (-40, 322, 430, 430, "#5B1F23"),
+]
+
+
+def bg_bloques():
+    img = linen(solid("#C6B79F"), 0.12, 20)                           # lino crudo entre bloques
+    for i, (x0, y0, x1, y1, c) in enumerate(BLOCKS):
+        fill = linen(mottle(solid(c), 0.10, 30 + i, 3), 0.16, 40 + i)
+        img = over(img, fill, rect_mask(x0 + 1.2, y0 + 1.2, x1 - 1.2, y1 - 1.2, 50 + i))
+    return to_image(vignette(img, 0.10))
+
+
+# ------------------------------------------------------------------ RETÍCULA
+GRID = dict(x0=105, y0=150, pitch=18, n=10, size=12.5)
+
+
+def stamp_mask(seed, cells):
+    """Cuadrados estampados en seco: borde irregular y tinta que no llega a todas partes."""
+    rng = np.random.default_rng(seed)
+    m = np.zeros((N, N), np.float32)
+    dry = fbm(40, seed + 1, 3)
+    for (cx, cy) in cells:
+        s = GRID["size"] * (0.9 + 0.2 * rng.random())
+        x0, y0 = cx - s / 2 + rng.normal(0, 0.6), cy - s / 2 + rng.normal(0, 0.6)
+        sx, sy = slice(int((y0 - 3) * K), int((y0 + s + 3) * K)), slice(int((x0 - 3) * K), int((x0 + s + 3) * K))
+        yy_, xx_ = yy[sx, sy], xx[sx, sy]
+        d = (dry[sx, sy] - 0.5) * 2.2
+        sq = (smooth(x0 - 0.6, x0 + 0.6, xx_ + d) * (1 - smooth(x0 + s - 0.6, x0 + s + 0.6, xx_ - d))
+              * smooth(y0 - 0.6, y0 + 0.6, yy_ + d) * (1 - smooth(y0 + s - 0.6, y0 + s + 0.6, yy_ - d)))
+        sq *= smooth(0.22, 0.45, dry[sx, sy] + 0.25 * rng.random())   # tinta seca
+        m[sx, sy] = np.maximum(m[sx, sy], sq)
+    return m
+
+
+def grid_cells():
+    g = GRID
+    return [(g["x0"] + (c + 0.5) * g["pitch"], g["y0"] + (r + 0.5) * g["pitch"])
+            for r in range(g["n"]) for c in range(g["n"])]
+
+
+def bg_reticula():
+    img = mottle(linen(solid("#EDE9E1"), 0.05, 60), 0.04, 61, 3)
+    r = np.sqrt((xx - 195) ** 2 + (yy - 195) ** 2)
+    edge = smooth(188.5, 190.5, r + 2.2 * (fbm(14, 62, 3) - 0.5) * 2)  # borde pintado del lienzo
+    img = over(img, solid("#4A3424") * (0.8 + 0.4 * fbm(8, 63, 2))[..., None], edge * 0.85)
+    ghost = stamp_mask(64, grid_cells())
+    img = over(img, solid("#1C1A17"), ghost * 0.10)                    # casillas aún por estampar
+    return to_image(img)
+
+
+def grid_sprite(side):
+    """Retícula completa estampada (solo la zona de la retícula, con transparencia)."""
+    m = stamp_mask(64, grid_cells())
+    rgba = np.dstack([solid("#1B1916") * (0.9 + 0.2 * fbm(30, 65, 2))[..., None], m])
+    im = Image.fromarray((np.clip(rgba, 0, 1) * 255).astype(np.uint8), "RGBA").resize((side, side), Image.LANCZOS)
+    s = side / 390
+    g = GRID
+    box = (int(g["x0"] * s), int(g["y0"] * s), int(np.ceil((g["x0"] + g["n"] * g["pitch"]) * s)),
+           int(np.ceil((g["y0"] + g["n"] * g["pitch"]) * s)))
+    return im.crop(box)
+
+
+# ------------------------------------------------------------------ COLLAGE
+PALETTE = ["#D7372A", "#1E8A4B", "#EFA2A6", "#D8A126", "#5A8FD0", "#151413", "#F3EEE4", "#2A7E78",
+           "#E1631E", "#B9C6CB", "#8C2B2B"]
+LABEL = (56, 88, 334, 294)
+
+
+def bg_collage():
+    rng = np.random.default_rng(90)
+    img = linen(solid("#EFE5CF"), 0.06, 91)
+    for i in range(150):
+        c = PALETTE[rng.integers(len(PALETTE))]
+        x, y = rng.uniform(-30, 420), rng.uniform(-30, 420)
+        kind = rng.choice(["rect", "blob", "leaf", "circle", "bar"], p=[0.30, 0.34, 0.1, 0.1, 0.16])
+        sz = rng.uniform(30, 110) * (1.0 if i < 110 else 0.5)
+        a = rng.uniform(0, np.pi)
+        if kind == "rect":
+            w, h = sz, sz * rng.uniform(0.4, 1.2)
+            pts = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]
+        elif kind == "bar":
+            w, h = sz * 1.6, sz * 0.22
+            pts = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]
+        elif kind == "circle":
+            pts = [(np.cos(q) * sz / 2, np.sin(q) * sz / 2) for q in np.linspace(0, 2 * np.pi, 28)]
+        elif kind == "leaf":
+            pts = [(np.cos(q) * sz * 0.7, np.sin(q) * sz * 0.28 * np.sin(q) ** 0) for q in np.linspace(0, 2 * np.pi, 28)]
+            pts = [(px, py * abs(np.sin(np.arctan2(py, px)))) for px, py in pts]
+        else:
+            ctrl = [(np.cos(q) * sz / 2 * rng.uniform(0.6, 1.2), np.sin(q) * sz / 2 * rng.uniform(0.6, 1.2))
+                    for q in np.linspace(0, 2 * np.pi, 7)[:-1]]
+            pts = spline(ctrl, closed=True, steps=8)
+        rot = [(x + px * np.cos(a) - py * np.sin(a), y + px * np.sin(a) + py * np.cos(a)) for px, py in pts]
+        fill = mottle(linen(solid(c), 0.10, 100 + i), 0.12, 500 + i, 5)
+        img = over(img, fill, poly_mask(rot, 0.5) * rng.uniform(0.85, 1.0))
+        if kind == "leaf" and rng.random() < 0.8:                       # nervio de la hoja
+            img = ink_lines(img, [[rot[0], (x, y), rot[14]]], "#141312", 0.8, 200 + i)
+    # garabatos de tinta y trazos blancos
+    for i in range(26):
+        pts = [(rng.uniform(-10, 400), rng.uniform(-10, 400))]
+        for _ in range(rng.integers(3, 7)):
+            pts.append((pts[-1][0] + rng.normal(0, 45), pts[-1][1] + rng.normal(0, 45)))
+        black = i % 3 != 0
+        img = ink_lines(img, [spline(pts, steps=12)], "#141312" if black else "#F6F2EA",
+                        rng.uniform(3.0, 7.0) if (black and i % 4 == 1) else rng.uniform(0.9, 2.0), 300 + i)
+    # puntos
+    for i in range(6):
+        cx, cy = rng.uniform(20, 370), rng.uniform(20, 370)
+        c = PALETTE[rng.integers(len(PALETTE))]
+        m = Image.new("L", (N, N), 0)
+        d = ImageDraw.Draw(m)
+        for _ in range(14):
+            px, py = cx + rng.normal(0, 16), cy + rng.normal(0, 16)
+            r = rng.uniform(2.5, 5) * K
+            d.ellipse((px * K - r, py * K - r, px * K + r, py * K + r), fill=255)
+        img = over(img, solid(c), np.asarray(m.filter(ImageFilter.GaussianBlur(0.5 * K)), np.float32) / 255)
+    # cartela: papel rasgado con sombra y cinta adhesiva
+    x0, y0, x1, y1 = LABEL
+    shadow = rect_mask(x0 + 3, y0 + 4, x1 + 3, y1 + 4, 400, rough=3, soft=4)
+    img = img * (1 - 0.35 * shadow)[..., None]
+    paper = mottle(linen(solid("#F4EEE2"), 0.04, 401), 0.04, 402, 3)
+    img = over(img, paper, rect_mask(x0, y0, x1, y1, 403, rough=3.5, soft=0.8))
+    tape = rect_mask(170, y0 - 10, 222, y0 + 10, 404, rough=1.5, soft=0.8)
+    img = over(img, solid("#E9DFC6"), tape * 0.75)
+    return to_image(vignette(img, 0.08))
+
+
+def ink_lines(img, paths, color, width, seed):
+    rng = np.random.default_rng(seed)
+    m = Image.new("L", (N, N), 0)
+    d = ImageDraw.Draw(m)
+    for path in paths:
+        ph = rng.random() * 6
+        for i, (x, y) in enumerate(path):
+            w = width * (0.7 + 0.4 * np.sin(i / 9 + ph)) * K / 2
+            d.ellipse((x * K - w, y * K - w, x * K + w, y * K + w), fill=255)
+    mk = np.asarray(m.filter(ImageFilter.GaussianBlur(0.4 * K)), np.float32) / 255.0
+    return over(img, hexrgb(color), mk)
+
+
+# ------------------------------------------------------------------ salida
+ART = {
+    "cinta_verde": lambda: bg_cinta("#D4CFC3", ("#0F2A1E", "#2C5A40", "#7FA88A"), "#16211B", 70),
+    "cinta_ambar": lambda: bg_cinta("#EEEAE3", ("#9C3A06", "#E7801A", "#FFD15A"), "#5A2A08", 80),
+    "bloques": bg_bloques,
+    "reticula": bg_reticula,
+    "collage": bg_collage,
+}
 
 
 def main():
     preview = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else None
-    bgs = {"campos": bg_campos(), "organica": bg_organica(), "trazos": bg_trazos()}
-    colors = ["#22389E", "#1F3396", "#2742AA", "#20379A", "#6F86D6"]   # 4 variantes + hoy
-    meta = None
+    only = sys.argv[2].split(",") if len(sys.argv) > 2 else list(ART)
+    arts = {name: ART[name]() for name in only}
     for side, folder in SIZES.items():
         d = ROOT / folder / "paint"
         d.mkdir(parents=True, exist_ok=True)
-        for name, img in bgs.items():
+        for name, img in arts.items():
             img.resize((side, side), Image.LANCZOS).save(d / f"bg_{name}.png")
-        for v, c in enumerate(colors):
-            meta = stroke_sprites(v, c, d, side)
+        grid_sprite(side).save(d / "grid.png")
         xml = ["<drawables>"]
-        for name in bgs:
-            xml.append(f'    <bitmap id="Bg{name.capitalize()}" filename="bg_{name}.png" packingFormat="jpg"/>')
-        for v in range(len(colors)):
-            xml.append(f'    <bitmap id="Stroke{v}" filename="stroke{v}.png"/>')
-            xml.append(f'    <bitmap id="Tip{v}" filename="tip{v}.png"/>')
+        for name in ART:
+            rid = "Bg" + "".join(p.capitalize() for p in name.split("_"))
+            xml.append(f'    <bitmap id="{rid}" filename="bg_{name}.png" packingFormat="jpg"/>')
+        xml.append('    <bitmap id="Grid" filename="grid.png"/>')
         xml.append("</drawables>")
         (d / "paint.xml").write_text("\n".join(xml) + "\n")
-        print(folder, "pinceladas", meta)
     if preview:
         preview.mkdir(parents=True, exist_ok=True)
-        for name, img in bgs.items():
+        for name, img in arts.items():
             img.resize((390, 390), Image.LANCZOS).save(preview / f"bg_{name}.png")
 
 

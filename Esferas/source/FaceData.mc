@@ -32,6 +32,8 @@ class FaceData {
     var waxing = true;
     var sunCurve as Array or Null = null; // elevaciones (grados) de 0 h a 24 h
     var sunNow = 0.0;
+    var battery = 0;
+    var nextSunrise = false;   // true: el siguiente evento es el amanecer
 
     var curveKey = -1;         // día del año con el que se calculó sunCurve
     var lat = null;
@@ -54,6 +56,8 @@ class FaceData {
         date = DAYS[(g.day_of_week as Number) - 1] + " " + g.day.toString() + " " + MONTHS[(g.month as Number) - 1];
         nowH = ct.hour + ct.min / 60.0;
 
+        var stats = System.getSystemStats();
+        battery = Math.round(stats.battery).toNumber();
         updateWeather(ds);
         updateActivity();
         var m = Astro.moon(now.value());
@@ -140,6 +144,7 @@ class FaceData {
             setH = times[1];
             sunrise = clockH(riseH, is24);
             sunset = clockH(setH, is24);
+            nextSunrise = nowH < riseH || nowH >= setH;
             var f = (nowH - riseH) / (setH - riseH);
             dayFrac = f < 0 ? 0.0 : (f > 1 ? 1.0 : f);
         }

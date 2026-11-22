@@ -4,6 +4,8 @@
             <listEntry value="0">@Strings.Theme0</listEntry>
             <listEntry value="1">@Strings.Theme1</listEntry>
             <listEntry value="2">@Strings.Theme2</listEntry>
+            <listEntry value="3">@Strings.Theme3</listEntry>
+            <listEntry value="4">@Strings.Theme4</listEntry>
         </settingConfig>
     </setting>
 </settings>

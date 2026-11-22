@@ -12,6 +12,8 @@ const F = {
   time:  { size: 124, weight: 250, track: 0 },
   timem: { size: 88,  weight: 280, track: 0 },
   timeb: { size: 124, weight: 560, track: 0 },
+  timesb: { size: 58, weight: 560, track: 0 },
+  timesl: { size: 58, weight: 260, track: 0 },
   data:  { size: 28,  weight: 340, track: 1 },
   label: { size: 19,  weight: 460, track: 5 },
   small: { size: 21,  weight: 380, track: 1 },
@@ -22,7 +24,7 @@ const P = v => Math.round(v * k);
 const IMG = {};
 const GLYPH_STYLES = ['cv', 'ca', 'bl', 're', 'co', 'ba'];
 window.loadArt = () => Promise.all([
-  ...['bg_cinta3d_verde','bg_cinta3d_ambar','bg_bloques','bg_reticula','bg_collage','bg_collage2','bg_collage3','bg_geometria','bg_ola','grid','sun',
+  ...['bg_cinta3d_verde','bg_cinta3d_ambar','bg_bloques','bg_reticula','bg_collage','bg_collage2','bg_collage3','bg_geometria','bg_ola','bg_oleo','grid','sun',
       ...[...Array(8).keys()].map(i => 'moonl' + i),
       'bg_cielo_noche','bg_cielo_alba','bg_cielo_dia','bg_cielo_dorada','bg_cielo_ocaso',
       ...[...Array(8).keys()].map(i => 'moon' + i)].map(n => [n, '../../resources/paint/' + n + '.png']),
@@ -72,7 +74,11 @@ function icon(kind, x, y, s, col, bg){
   if (kind === 'steps'){ dc.fillStyle = col;
     dc.beginPath(); dc.ellipse(x + s*0.30, y + s*0.40, s*0.13, s*0.22, 0, 0, 7); dc.fill(); circle(x + s*0.30, y + s*0.76, s*0.08, col);
     dc.beginPath(); dc.ellipse(x + s*0.70, y + s*0.30, s*0.13, s*0.22, 0, 0, 7); dc.fill(); circle(x + s*0.70, y + s*0.66, s*0.08, col); return; }
-  if (kind === 'moon'){ const mp = IMG['moon' + window.__moon]; dc.drawImage(mp, x, y + (s - s) , s, s); return; }
+  if (kind === 'moon'){ const r = s / 2, cx = x + r, cy = y + r + 1, il = window.__illum, side = window.__wax ? 1 : -1;
+    circle(cx, cy, r, '#D9B48D'); if (il < 0.02) return; const pts = [], tx = r * (1 - 2 * il);
+    for (let i = 0; i <= 16; i++){ const a = -Math.PI/2 + Math.PI*i/16; pts.push([cx + side*Math.cos(a)*r, cy + Math.sin(a)*r]); }
+    for (let i = 16; i >= 0; i--){ const a = -Math.PI/2 + Math.PI*i/16; pts.push([cx + side*Math.cos(a)*tx, cy + Math.sin(a)*r]); }
+    poly(pts, col); return; }
   if (kind === 'battery'){ // cuerpo + polo + nivel
     const bw = s, bh = s * 0.5, by = y + s * 0.28;
     rrect(x, by, bw * 0.9, bh, s*0.08, col); rrect(x + P(2), by + P(2), bw * 0.9 - P(4), bh - P(4), s*0.05, bg);
@@ -233,6 +239,27 @@ function ola(d){
   rect(P(268), P(340), P(50) * d.battery / 100, Math.max(2, P(3)), cream);
 }
 
+// =================== ÓLEO (fondo del usuario) ===================
+// La obra manda: hora y fecha como cartela arriba a la izquierda; datos en el crema de abajo a la derecha.
+function oleo(d){
+  art('oleo');
+  const ink = '#3B1F12', rust = '#A8461C', bg = '#EBC9A3';
+  text(P(70), P(56), d.date, F.label, rust, 'l');                                      // cartela: fecha
+  const [hh, mm] = d.time.split(':');
+  text(P(68), P(80), hh, F.timesb, ink, 'l');                                          // horas negrita
+  text(P(68), P(126), mm, F.timesl, ink, 'l');                                         // minutos finos
+  // columna de datos alineada a la derecha siguiendo la curva de la esfera
+  const edge = y => P(195) + Math.sqrt(P(195) ** 2 - (y + P(10) - P(195)) ** 2) - P(16);
+  const rowR = (y, items, ic) => { let w = 0; for (const it of items) w += P(ic) + P(5) + textW(it[1], F.small);
+    row(edge(y) - w / 2, y, items, ink, rust, bg, ic, F.small); };
+  rowR(P(240), [[d.cond, d.temp + '° · ' + d.precip + '%']], 15);
+  rowR(P(264), [['steps', fmtSteps(d.steps)]], 14);
+  rowR(P(288), [sunItem(d)], 14);
+  rowR(P(312), [['moon', Math.round(d.moonIllum * 100) + '%']], 13);
+  const n = Math.round(d.battery / 20), bx = edge(P(334)) - P(27);                      // batería: cinco puntos
+  for (let i = 0; i < 5; i++) circle(bx + P(i * 6.5), P(340), Math.max(1.4, P(1.9)), i < n ? rust : '#D9B48D');
+}
+
 // =================== CIELO PINTADO ===================
 // El cielo cambia con la altura real del sol; el sol recorre su arco; la luna muestra su fase.
 function skyState(d){
@@ -283,11 +310,11 @@ function aod(d){
 
 window.render = (theme, d, size = 390) => {
   const cv = document.getElementById('c'); cv.width = cv.height = size; k = size / S;
-  dc = cv.getContext('2d'); window.__batt = d.battery / 100; window.__moon = d.moonIdx;
+  dc = cv.getContext('2d'); window.__batt = d.battery / 100; window.__moon = d.moonIdx; window.__illum = d.moonIllum; window.__wax = true;
   ({ cinta_verde: d => cinta(d, true), cinta_ambar: d => cinta(d, false), bloques, reticula, collage, aod, cielo,
      cielo_noche: d => cielo({...d, state: 'noche'}), cielo_alba: d => cielo({...d, state: 'alba'}),
      cielo_dia: d => cielo({...d, state: 'dia'}), cielo_dorada: d => cielo({...d, state: 'dorada'}),
-     cielo_ocaso: d => cielo({...d, state: 'ocaso'}), collage2: collage, collage3: collage, geometria, ola })[theme](d);
+     cielo_ocaso: d => cielo({...d, state: 'ocaso'}), collage2: collage, collage3: collage, geometria, ola, oleo })[theme](d);
   dc.globalCompositeOperation = 'destination-in'; dc.beginPath(); dc.arc(size/2, size/2, size/2, 0, 7); dc.fill();
   dc.globalCompositeOperation = 'source-over';
 };

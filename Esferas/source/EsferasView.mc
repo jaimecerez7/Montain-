@@ -26,7 +26,7 @@ class EsferasView extends WatchUi.WatchFace {
     function loadSettings() as Void {
         var t = null;
         try { t = Application.Properties.getValue("Theme"); } catch (ex) {}
-        theme = t instanceof Number && t >= 0 && t <= 7 ? t : 7;
+        theme = t instanceof Number && t >= 0 && t <= 8 ? t : 8;
         loadArt();
     }
 
@@ -34,7 +34,8 @@ class EsferasView extends WatchUi.WatchFace {
         themes = new Themes([WatchUi.loadResource(Rez.Fonts.Time), WatchUi.loadResource(Rez.Fonts.Timem),
             WatchUi.loadResource(Rez.Fonts.Data), WatchUi.loadResource(Rez.Fonts.Label),
             WatchUi.loadResource(Rez.Fonts.Small), WatchUi.loadResource(Rez.Fonts.Mini),
-            WatchUi.loadResource(Rez.Fonts.Timeb)]);
+            WatchUi.loadResource(Rez.Fonts.Timeb), WatchUi.loadResource(Rez.Fonts.Timesb),
+            WatchUi.loadResource(Rez.Fonts.Timesl)]);
         loadArt();
     }
 
@@ -56,7 +57,8 @@ class EsferasView extends WatchUi.WatchFace {
             }
             loadedCollage = -1;
             var ids = [Rez.Drawables.BgCinta3dVerde, Rez.Drawables.BgCinta3dAmbar, Rez.Drawables.BgBloques,
-                Rez.Drawables.BgReticula, null, null, Rez.Drawables.BgGeometria, Rez.Drawables.BgOla];
+                Rez.Drawables.BgReticula, null, null, Rez.Drawables.BgGeometria, Rez.Drawables.BgOla,
+                Rez.Drawables.BgOleo];
             if (theme != 4) { t.bg = WatchUi.loadResource(ids[theme]); }
             if (theme == 3) { t.grid = WatchUi.loadResource(Rez.Drawables.Grid); }
             var sets = [
@@ -80,7 +82,7 @@ class EsferasView extends WatchUi.WatchFace {
                  Rez.Drawables.GlyphBa8, Rez.Drawables.GlyphBa9, Rez.Drawables.GlyphBa10]
             ];
             t.moonL = null;
-            if (theme == 7) { return; }   // Ola no usa cifras pintadas
+            if (theme >= 7) { return; }   // Ola y Óleo no usan cifras pintadas
             var set = theme == 6 ? 5 : theme;
             var g = [];
             for (var i = 0; i < 11; i++) { g.add(WatchUi.loadResource(sets[set][i])); }

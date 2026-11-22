@@ -750,6 +750,7 @@ ART = {
     "collage3": lambda: bg_collage(291),
     "geometria": bg_geometria,
     "ola": bg_ola,
+    "oleo": lambda: Image.open(ROOT / "tools/art/oleo.png").convert("RGB"),   # fondo aportado por el usuario
     "cinta3d_verde": lambda: bg_cinta3d("#D8D4C9", ("#0B2419", "#28533C", "#86AE92"), "#14201A", 77, CINTA3D_PATH),
     "cinta3d_ambar": lambda: bg_cinta3d("#EDEAE4", ("#8A3204", "#E07A12", "#FFD45E"), "#5A2A08", 87, CINTA3D_PATH),
     "cielo_noche": lambda: bg_cielo("noche"),

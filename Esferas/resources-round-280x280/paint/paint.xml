@@ -6,6 +6,7 @@
     <bitmap id="BgCollage3" filename="bg_collage3.png" packingFormat="jpg"/>
     <bitmap id="BgGeometria" filename="bg_geometria.png" packingFormat="jpg"/>
     <bitmap id="BgOla" filename="bg_ola.png" packingFormat="jpg"/>
+    <bitmap id="BgOleo" filename="bg_oleo.png" packingFormat="jpg"/>
     <bitmap id="BgCinta3dVerde" filename="bg_cinta3d_verde.png" packingFormat="jpg"/>
     <bitmap id="BgCinta3dAmbar" filename="bg_cinta3d_ambar.png" packingFormat="jpg"/>
     <bitmap id="BgCieloNoche" filename="bg_cielo_noche.png" packingFormat="jpg"/>

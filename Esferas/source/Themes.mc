@@ -13,6 +13,7 @@ class Themes {
     const CIELO = 5;
     const GEOMETRIA = 6;
     const OLA = 7;
+    const OLEO = 8;
     // por estado del cielo: puntos del arco, montaña cercana (fondo de iconos)
     const SKY_DOT = [0x8C93B5, 0xF2D3C8, 0xDCEBF5, 0xFCE2B8, 0xE9B4A6];
     const SKY_NEAR = [0x0C1224, 0x383350, 0x2C4351, 0x3B2A30, 0x1C172E];
@@ -24,6 +25,9 @@ class Themes {
     var fSmall;
     var fMini;
     var fTimeB;
+    var fTimeSB;
+    var fTimeSL;
+    var moonShadow = 0xBDB6A8;
     var moonL = null;    // luna grande pintada (Ola)
     var bg = null;       // obra del estilo activo
     var grid = null;     // retícula estampada completa (Retícula)
@@ -42,6 +46,8 @@ class Themes {
         fSmall = fonts[4];
         fMini = fonts[5];
         fTimeB = fonts[6];
+        fTimeSB = fonts[7];
+        fTimeSL = fonts[8];
     }
 
     function resetCache() as Void {}
@@ -56,6 +62,7 @@ class Themes {
         else if (theme == CIELO) { cielo(dc, d); }
         else if (theme == GEOMETRIA) { geometria(dc, d); }
         else if (theme == OLA) { ola(dc, d); }
+        else if (theme == OLEO) { oleo(dc, d); }
         else { cinta(dc, d, theme == CINTA_VERDE); }
     }
 
@@ -72,7 +79,7 @@ class Themes {
         else if (kind == :sunrise) { Draw.iconSunEvent(dc, x, y, s, color, true); }
         else if (kind == :sunset) { Draw.iconSunEvent(dc, x, y, s, color, false); }
         else if (kind == :moon) {
-            Draw.moon(dc, x + s / 2, y + s / 2 + 1, s / 2, moonIllum, moonWaxing, color, bg2 == color ? 0x888888 : 0xBDB6A8);
+            Draw.moon(dc, x + s / 2, y + s / 2 + 1, s / 2, moonIllum, moonWaxing, color, moonShadow);
         }
         else if (kind == :drop) { Draw.iconDrop(dc, x + s / 6, y + s / 8, (s * 0.7).toNumber(), color); }
         else { Draw.iconWeather(dc, kind, x, y, s, color, bg2); }
@@ -159,6 +166,7 @@ class Themes {
         var ink = verde ? 0x18211B : 0x2A1C11;
         var soft = verde ? 0x6A716A : 0x8A7A68;
         var ground = verde ? 0xD8D4C9 : 0xEDEAE4;
+        moonShadow = 0xBDB6A8;
         background(dc, ground);
         var c = Graphics.TEXT_JUSTIFY_CENTER;
         Draw.text(dc, Draw.p(180), Draw.p(42), d.date, fLabel, soft, c);
@@ -352,6 +360,52 @@ class Themes {
         dc.fillRectangle(Draw.p(268), Draw.p(340), Draw.p(50), th);
         dc.setColor(cream, Graphics.COLOR_TRANSPARENT);
         dc.fillRectangle(Draw.p(268), Draw.p(340), (Draw.p(50) * d.battery / 100.0).toNumber(), th);
+    }
+
+    // ------------------------------------------------------------ ÓLEO (fondo aportado por el usuario)
+    // La obra manda: hora y fecha como cartela arriba a la izquierda; datos en el crema de
+    // abajo a la derecha, alineados siguiendo la curva de la esfera.
+    function oleo(dc as Graphics.Dc, d as FaceData) as Void {
+        background(dc, 0xEBC9A3);
+        var ink = 0x3B1F12;
+        var rust = 0xA8461C;
+        var bg2 = 0xEBC9A3;
+        var l = Graphics.TEXT_JUSTIFY_LEFT;
+        moonShadow = 0xD9B48D;
+        Draw.text(dc, Draw.p(70), Draw.p(56), d.date, fLabel, rust, l);
+        var colon = d.time.find(":");
+        var hh = colon == null ? d.time : d.time.substring(0, colon);
+        var mm = colon == null ? "" : d.time.substring(colon + 1, d.time.length());
+        Draw.text(dc, Draw.p(68), Draw.p(80), hh, fTimeSB, ink, l);
+        Draw.text(dc, Draw.p(68), Draw.p(126), mm, fTimeSL, ink, l);
+        rowR(dc, Draw.p(240), [[d.cond, d.temp + " · " + d.precip]], [ink, rust, bg2], 15);
+        rowR(dc, Draw.p(264), [[:steps, d.stepsText()]], [ink, rust, bg2], 14);
+        rowR(dc, Draw.p(288), [sunItem(d)], [ink, rust, bg2], 14);
+        rowR(dc, Draw.p(312), [[:moon, moonPct(d)]], [ink, rust, bg2], 13);
+        var n = Math.round(d.battery / 20.0).toNumber();
+        var bx = edgeX(dc, Draw.p(334)) - Draw.p(27);
+        var dr = Draw.p(1.9) < 1 ? 1 : Draw.p(1.9);
+        for (var i = 0; i < 5; i++) {
+            dc.setColor(i < n ? rust : 0xD9B48D, Graphics.COLOR_TRANSPARENT);
+            dc.fillCircle(bx + Draw.p(i * 6.5), Draw.p(340), dr);
+        }
+    }
+
+    // Borde derecho útil a la altura y (siguiendo el círculo de la pantalla).
+    function edgeX(dc as Graphics.Dc, y) as Number {
+        var r = Draw.p(195);
+        var dy = y + Draw.p(10) - r;
+        var sq = r * r - dy * dy;
+        return (r + (sq > 0 ? Math.sqrt(sq) : 0) - Draw.p(16)).toNumber();
+    }
+
+    // Fila compacta alineada a la derecha contra el borde de la esfera.
+    function rowR(dc as Graphics.Dc, y, items as Array, colors as Array, ic) as Void {
+        var w = 0;
+        for (var i = 0; i < items.size(); i++) {
+            w += Draw.p(ic) + Draw.p(5) + dc.getTextWidthInPixels(items[i][1], fSmall);
+        }
+        small(dc, edgeX(dc, y) - w / 2, y, items, colors, ic);
     }
 
     // ------------------------------------------------------------ CIELO PINTADO

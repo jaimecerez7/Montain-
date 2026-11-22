@@ -17,6 +17,8 @@ module PeakTiles {
     const COLS = 4;
 
     // Identificador del recurso JSON de la tesela (fila, columna), o null si está vacía.
+    // Sin comprobación de tipos: deducir el tipo de cada JSON agota la memoria del compilador.
+    (:typecheck(false))
     function tile(r as Number, c as Number) as ResourceId or Null {
         if (r < 0 || r >= ROWS || c < 0 || c >= COLS) { return null; }
         var grid = [

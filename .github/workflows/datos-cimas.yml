@@ -1,11 +1,7 @@
 name: Actualizar cumbres offline (OpenStreetMap)
 
 on:
-  workflow_dispatch:
-  push:
-    paths:
-      - "HorizonteCimas/tools/fetch_peaks.py"
-      - ".github/workflows/datos-cimas.yml"
+  workflow_dispatch:   # se lanza a mano (Actions → Actualizar cumbres offline → Run workflow)
 
 permissions:
   contents: write
@@ -32,4 +28,5 @@ jobs:
           git add HorizonteCimas/resources/peaks HorizonteCimas/source/PeakTiles.mc HorizonteCimas/tools/data
           if git diff --cached --quiet; then echo "Sin cambios en los datos"; exit 0; fi
           git commit -m "Datos: cumbres offline de Segovia y Guadarrama (OpenStreetMap)"
+          git pull --rebase origin ${{ github.ref_name }}
           git push origin HEAD:${{ github.ref_name }}

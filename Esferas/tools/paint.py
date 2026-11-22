@@ -624,15 +624,122 @@ def bg_geometria(seed=31):
     img = over(img, gouache("#1C1A17", 923), rect_mask(x0, y0, x1, y1, 924, rough=1.0, soft=0.6))
     return to_image(vignette(img, 0.08))
 
+
+# ------------------------------------------------------------------ CINTA 3D (minimalista)
+def spline3(pts, steps=40):
+    pts = np.asarray(pts, np.float64)
+    n = len(pts)
+    out = []
+    for i in range(n - 1):
+        p0, p1, p2, p3 = pts[max(0, i - 1)], pts[i], pts[i + 1], pts[min(n - 1, i + 2)]
+        for s in range(steps):
+            t = s / steps
+            t2, t3 = t * t, t * t * t
+            out.append(0.5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (3 * p1 - p0 - 3 * p2 + p3) * t3))
+    out.append(pts[-1])
+    return np.array(out)
+
+
+def ribbon3d(img, ctrl, colors, seed, width=38.0, twist=(0.3, 8.5), light=(-0.55, -0.70, 0.45)):
+    """Cinta de pincel modelada en 3D: curva en el espacio con marco que gira (twist),
+    luz direccional por las dos caras (la interior más oscura), orden de profundidad real
+    y cerdas finas a lo largo del recorrido. Se proyecta en ortográfica sobre el lienzo."""
+    rng = np.random.default_rng(seed)
+    C = spline3(ctrl, 60)
+    seg = np.linalg.norm(np.diff(C, axis=0), axis=1)
+    sl = np.concatenate([[0], np.cumsum(seg)])
+    step = 0.40 / K
+    sn = np.arange(0, sl[-1], step)
+    C = np.stack([np.interp(sn, sl, C[:, j]) for j in range(3)], 1)
+    t = sn / sl[-1]
+    T = np.gradient(C, axis=0)
+    T /= np.linalg.norm(T, axis=1, keepdims=True) + 1e-9
+    # transporte paralelo del marco
+    N = np.zeros_like(T)
+    ref = np.array([0.0, 0.0, 1.0])
+    n0 = np.cross(T[0], ref)
+    N[0] = n0 / (np.linalg.norm(n0) + 1e-9)
+    for i in range(1, len(T)):
+        v = N[i - 1] - np.dot(N[i - 1], T[i]) * T[i]
+        N[i] = v / (np.linalg.norm(v) + 1e-9)
+    Bn = np.cross(T, N)
+    phi = twist[0] + (twist[1] - twist[0]) * t + 0.9 * np.sin(2 * np.pi * 1.1 * t)
+    B = np.cos(phi)[:, None] * N + np.sin(phi)[:, None] * Bn         # dirección a lo ancho
+    nrm = np.cross(T, B)                                              # normal de la superficie
+    taper = np.clip(np.sin(np.pi * np.clip(t, 0, 1)) ** 0.45, 0.05, 1)
+    w = width * taper * (0.18 + 0.82 * np.abs(np.cos(phi * 0.5)) ** 0.7)      # pliegues de canto
+    nk = 380
+    k = np.linspace(-1, 1, nk)
+    P = C[:, None, :] + (w[:, None] * k[None, :])[..., None] * B[:, None, :]
+    L = np.array(light, np.float64)
+    L /= np.linalg.norm(L)
+    ndl = (nrm @ L)[:, None] * np.ones((1, nk))
+    front = (nrm[:, 2] > 0)[:, None] * np.ones((1, nk), bool)
+    # abombado leve a lo ancho y oscurecimiento en los bordes del pincel
+    cup = 1 - 0.25 * k[None, :] ** 2
+    H = L + np.array([0, 0, 1.0])
+    H /= np.linalg.norm(H)
+    spec = (np.clip(np.abs(nrm @ H), 0, 1) ** 24)[:, None] * np.ones((1, nk))
+    # sombreado pictórico: degradado que gira a lo ancho con cada pliegue; cara interior en sombra
+    curl = 0.5 + 0.5 * np.sin(phi[:, None] * 0.5 + 1.7 * k[None, :])
+    face = (np.cos(phi * 0.5) >= 0)[:, None]
+    shade = np.where(face, 0.12 + 0.95 * curl, 0.05 + 0.38 * curl) * cup
+    shade = shade + 0.30 * np.clip((curl - 0.82) / 0.18, 0, 1) * face                   # brillo en la cresta
+    shade = shade + 0.04 * np.maximum(ndl, 0)
+    bristle = 0.80 + 0.36 * rng.random(nk)
+    bristle[rng.random(nk) > 0.80] *= 0.50
+    bristle = np.convolve(bristle, [0.15, 0.7, 0.15], mode="same")
+    dark, mid, light_c = (hexrgb(c) for c in colors)
+    sh = np.clip(shade, 0, 1.15)[..., None]
+    col = np.where(sh < 0.5, dark + (mid - dark) * (sh * 2), mid + (light_c - mid) * np.clip(sh * 2 - 1, 0, 1.3))
+    col = col * bristle[None, :, None]
+    # colas de pincel seco
+    tail = np.clip(np.minimum(t / 0.06, (1 - t) / 0.08), 0, 1)
+    keep = rng.random((len(t), nk)) < (tail[:, None] ** 0.6 + 0.02)
+    X, Y, Z = P[..., 0], P[..., 1], P[..., 2]
+    ix = (X * K).astype(np.int32)
+    iy = (Y * K).astype(np.int32)
+    ok = keep & (ix >= 0) & (ix < N_) & (iy >= 0) & (iy < N_)
+    order = np.argsort(Z[ok], kind="stable")                          # de atrás hacia delante
+    ixs, iys, cols = ix[ok][order], iy[ok][order], col[ok][order]
+    buf = np.zeros((N_, N_, 3), np.float32)
+    alpha = np.zeros((N_, N_), np.float32)
+    buf[iys, ixs] = np.clip(cols, 0, 1)
+    alpha[iys, ixs] = 1
+    rgba = Image.fromarray((np.dstack([buf, alpha]) * 255).astype(np.uint8), "RGBA")
+    arr = np.asarray(rgba.filter(ImageFilter.GaussianBlur(0.32 * K)), np.float32) / 255.0
+    shd = np.asarray(rgba.split()[3].filter(ImageFilter.GaussianBlur(7 * K)), np.float32) / 255.0
+    dy, dx = int(5 * K), int(3 * K)
+    shd = np.pad(shd, ((dy, 0), (dx, 0)))[:N_, :N_]
+    img = img * (1 - 0.18 * shd)[..., None]
+    a = np.clip(arr[..., 3] * 1.12, 0, 1)
+    rgb = arr[..., :3] / np.maximum(arr[..., 3:4], 1e-3)
+    return over(img, np.clip(rgb, 0, 1), a)
+
+
+N_ = N
+
+
+def bg_cinta3d(ground, colors, ink, seed, ctrl):
+    img = mottle(linen(solid(ground), 0.07, seed), 0.04, seed + 1, 3)
+    img = ribbon(img, [(x, y + 26) for x, y, _ in ctrl], colors, seed + 2, width=40.0, twists=2.3)
+    img = splatter(img, ink, seed + 3, (40, 222, 360, 384), count=34)
+    return to_image(vignette(img, 0.08))
+
+
+CINTA3D_PATH = [(-40, 330, 0), (30, 250, 60), (110, 222, -40), (176, 258, -90), (150, 326, -20), (92, 300, 70),
+                (126, 238, 90), (214, 214, 20), (290, 250, -80), (312, 330, -30), (256, 366, 60), (236, 298, 90),
+                (300, 240, 20), (370, 252, -60), (440, 320, 0)]
+
 ART = {
-    "cinta_verde": lambda: bg_cinta("#D4CFC3", ("#0F2A1E", "#2C5A40", "#7FA88A"), "#16211B", 70),
-    "cinta_ambar": lambda: bg_cinta("#EEEAE3", ("#9C3A06", "#E7801A", "#FFD15A"), "#5A2A08", 80),
     "bloques": bg_bloques,
     "reticula": bg_reticula,
     "collage": lambda: bg_collage(91),
     "collage2": lambda: bg_collage(191),
     "collage3": lambda: bg_collage(291),
     "geometria": bg_geometria,
+    "cinta3d_verde": lambda: bg_cinta3d("#D8D4C9", ("#0B2419", "#28533C", "#86AE92"), "#14201A", 77, CINTA3D_PATH),
+    "cinta3d_ambar": lambda: bg_cinta3d("#EDEAE4", ("#8A3204", "#E07A12", "#FFD45E"), "#5A2A08", 87, CINTA3D_PATH),
     "cielo_noche": lambda: bg_cielo("noche"),
     "cielo_alba": lambda: bg_cielo("alba"),
     "cielo_dia": lambda: bg_cielo("dia"),

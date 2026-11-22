@@ -26,6 +26,8 @@ class Themes {
     var grid = null;     // retícula estampada completa (Retícula)
     var glyphs as Array = [];   // cifras pintadas del estilo activo: 0-9 y ':' (índice 10)
     var battery = 0;
+    var moonIllum = 0.0;
+    var moonWaxing = true;
     var sun = null;      // sol pintado (Cielo)
     var moonBmp = null;  // luna pintada en su fase (Cielo)
 
@@ -42,6 +44,8 @@ class Themes {
 
     function draw(dc as Graphics.Dc, theme as Number, d as FaceData) as Void {
         battery = d.battery;
+        moonIllum = d.moonIllum;
+        moonWaxing = d.waxing;
         if (theme == BLOQUES) { bloques(dc, d); }
         else if (theme == RETICULA) { reticula(dc, d); }
         else if (theme == COLLAGE) { collage(dc, d); }
@@ -62,6 +66,9 @@ class Themes {
         else if (kind == :battery) { Draw.iconBattery(dc, x, y, s, color, bg2, battery); }
         else if (kind == :sunrise) { Draw.iconSunEvent(dc, x, y, s, color, true); }
         else if (kind == :sunset) { Draw.iconSunEvent(dc, x, y, s, color, false); }
+        else if (kind == :moon) {
+            Draw.moon(dc, x + s / 2, y + s / 2 + 1, s / 2, moonIllum, moonWaxing, color, bg2 == color ? 0x888888 : 0xBDB6A8);
+        }
         else if (kind == :drop) { Draw.iconDrop(dc, x + s / 6, y + s / 8, (s * 0.7).toNumber(), color); }
         else { Draw.iconWeather(dc, kind, x, y, s, color, bg2); }
     }
@@ -143,15 +150,23 @@ class Themes {
     // ------------------------------------------------------------ CINTA (verde / ámbar)
     // Datos arriba, sobre el lino limpio; la cinta pintada ocupa la parte baja.
     function cinta(dc as Graphics.Dc, d as FaceData, verde as Boolean) as Void {
-        var ink = verde ? 0x1E2620 : 0x2A1C11;
-        var soft = verde ? 0x5E665E : 0x86735F;
-        var ground = verde ? 0xD4CFC3 : 0xEEEAE3;
+        // Minimalista: la cinta manda; los datos, finos y con aire.
+        var ink = verde ? 0x18211B : 0x2A1C11;
+        var soft = verde ? 0x6A716A : 0x8A7A68;
+        var ground = verde ? 0xD8D4C9 : 0xEDEAE4;
         background(dc, ground);
         var c = Graphics.TEXT_JUSTIFY_CENTER;
-        Draw.text(dc, Draw.p(195), Draw.p(42), d.date, fLabel, soft, c);
-        row(dc, Draw.p(195), Draw.p(70), [[d.cond, d.temp], [:steps, d.stepsText()], [:battery, pct(d.battery)]],
-            ink, soft, ground, 20);
-        glyphTime(dc, Draw.p(195), Draw.p(110), d.time, 2);
+        Draw.text(dc, Draw.p(180), Draw.p(42), d.date, fLabel, soft, c);
+        var n = Math.round(d.battery / 20.0).toNumber();
+        var dr = Draw.p(1.6) < 1 ? 1 : Draw.p(1.6);
+        for (var i = 0; i < 5; i++) {
+            dc.setColor(i < n ? ink : 0xBDB6A8, Graphics.COLOR_TRANSPARENT);
+            dc.fillCircle(Draw.p(266 + i * 5.5), Draw.p(49), dr);
+        }
+        Draw.text(dc, Draw.p(195), Draw.p(64), d.time, fTime, ink, c);
+        small(dc, Draw.p(195), Draw.p(170), [[d.cond, d.temp], [:steps, d.stepsText()], [:moon, moonPct(d)]],
+            [ink, soft, ground], 14);
+        small(dc, Draw.p(195), Draw.p(196), [[:sunrise, d.sunrise], [:sunset, d.sunset]], [soft, soft, ground], 12);
     }
 
     // ------------------------------------------------------------ BLOQUES

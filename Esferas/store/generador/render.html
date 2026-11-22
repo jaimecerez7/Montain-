@@ -21,7 +21,7 @@ const P = v => Math.round(v * k);
 const IMG = {};
 const GLYPH_STYLES = ['cv', 'ca', 'bl', 're', 'co', 'ba'];
 window.loadArt = () => Promise.all([
-  ...['bg_cinta_verde','bg_cinta_ambar','bg_bloques','bg_reticula','bg_collage','bg_collage2','bg_collage3','bg_geometria','grid','sun',
+  ...['bg_cinta3d_verde','bg_cinta3d_ambar','bg_bloques','bg_reticula','bg_collage','bg_collage2','bg_collage3','bg_geometria','grid','sun',
       'bg_cielo_noche','bg_cielo_alba','bg_cielo_dia','bg_cielo_dorada','bg_cielo_ocaso',
       ...[...Array(8).keys()].map(i => 'moon' + i)].map(n => [n, '../../resources/paint/' + n + '.png']),
   ...GLYPH_STYLES.flatMap(g => [...Array(11).keys()].map(i => ['g' + g + i, '../../resources/glyphs/g' + g + i + '.png']))
@@ -48,7 +48,7 @@ function text(x, y, t, f, col, align = 'c'){
 function rect(x, y, w, h, col){ dc.fillStyle = col; dc.fillRect(x, y, w, h); }
 function rrect(x, y, w, h, r, col){ dc.fillStyle = col; dc.beginPath(); dc.roundRect(x, y, w, h, r); dc.fill(); }
 function poly(pts, col){ dc.fillStyle = col; dc.beginPath(); dc.moveTo(...pts[0]); for (const p of pts.slice(1)) dc.lineTo(...p); dc.closePath(); dc.fill(); }
-function circle(x, y, r, col){ dc.fillStyle = col; dc.beginPath(); dc.arc(x, y, r, 0, 7); dc.fill(); }
+function circle(x, y, r, col){ if (r <= 0) return; dc.fillStyle = col; dc.beginPath(); dc.arc(x, y, r, 0, 7); dc.fill(); }
 function ring(x, y, r, col){ dc.strokeStyle = col; dc.lineWidth = Math.max(1, P(2)); dc.beginPath(); dc.arc(x, y, r, 0, 7); dc.stroke(); }
 function line(x1, y1, x2, y2, col, lw = 2){ dc.strokeStyle = col; dc.lineWidth = Math.max(1, P(lw)); dc.lineCap = 'round'; dc.beginPath(); dc.moveTo(x1, y1); dc.lineTo(x2, y2); dc.stroke(); }
 function art(n){ dc.drawImage(IMG['bg_' + n], 0, 0, S*k, S*k); }
@@ -70,6 +70,7 @@ function icon(kind, x, y, s, col, bg){
   if (kind === 'steps'){ dc.fillStyle = col;
     dc.beginPath(); dc.ellipse(x + s*0.30, y + s*0.40, s*0.13, s*0.22, 0, 0, 7); dc.fill(); circle(x + s*0.30, y + s*0.76, s*0.08, col);
     dc.beginPath(); dc.ellipse(x + s*0.70, y + s*0.30, s*0.13, s*0.22, 0, 0, 7); dc.fill(); circle(x + s*0.70, y + s*0.66, s*0.08, col); return; }
+  if (kind === 'moon'){ const mp = IMG['moon' + window.__moon]; dc.drawImage(mp, x, y + (s - s) , s, s); return; }
   if (kind === 'battery'){ // cuerpo + polo + nivel
     const bw = s, bh = s * 0.5, by = y + s * 0.28;
     rrect(x, by, bw * 0.9, bh, s*0.08, col); rrect(x + P(2), by + P(2), bw * 0.9 - P(4), bh - P(4), s*0.05, bg);
@@ -104,11 +105,15 @@ function sunItem(d){ return d.nextSun === 'sunrise' ? ['sunrise', d.sunrise] : [
 
 // =================== CINTA ===================
 function cinta(d, verde){
-  art(verde ? 'cinta_verde' : 'cinta_ambar');
-  const ink = verde ? '#1E2620' : '#2A1C11', soft = verde ? '#5E665E' : '#86735F', bg = verde ? '#D4CFC3' : '#EEEAE3';
-  text(P(195), P(42), d.date, F.label, soft);
-  row(P(195), P(70), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)], ['battery', d.battery + '%']], ink, soft, bg, 20);
-  glyphTime(P(195), P(110), d.time, verde ? 'cv' : 'ca', 2);
+  art(verde ? 'cinta3d_verde' : 'cinta3d_ambar');
+  // Minimalista: la cinta manda; los datos, finos y con aire.
+  const ink = verde ? '#18211B' : '#2A1C11', soft = verde ? '#6A716A' : '#8A7A68', bg = verde ? '#D8D4C9' : '#EDEAE4';
+  text(P(180), P(42), d.date, F.label, soft);
+  const n = Math.round(d.battery / 20);
+  for (let i = 0; i < 5; i++) circle(P(266 + i * 5.5), P(49), Math.max(1.2, P(1.6)), i < n ? ink : '#BDB6A8');
+  text(P(195), P(64), d.time, F.time, ink);
+  row(P(195), P(170), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)], ['moon', Math.round(d.moonIllum * 100) + '%']], ink, soft, bg, 14, F.small);
+  row(P(195), P(196), [['sunrise', d.sunrise], ['sunset', d.sunset]], soft, soft, bg, 12, F.small);
 }
 
 // =================== BLOQUES ===================
@@ -251,7 +256,7 @@ function aod(d){
 
 window.render = (theme, d, size = 390) => {
   const cv = document.getElementById('c'); cv.width = cv.height = size; k = size / S;
-  dc = cv.getContext('2d'); window.__batt = d.battery / 100;
+  dc = cv.getContext('2d'); window.__batt = d.battery / 100; window.__moon = d.moonIdx;
   ({ cinta_verde: d => cinta(d, true), cinta_ambar: d => cinta(d, false), bloques, reticula, collage, aod, cielo,
      cielo_noche: d => cielo({...d, state: 'noche'}), cielo_alba: d => cielo({...d, state: 'alba'}),
      cielo_dia: d => cielo({...d, state: 'dia'}), cielo_dorada: d => cielo({...d, state: 'dorada'}),

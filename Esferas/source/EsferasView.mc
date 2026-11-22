@@ -54,7 +54,7 @@ class EsferasView extends WatchUi.WatchFace {
                 return;   // el cielo y la luna se cargan en cieloArt() según la hora
             }
             loadedCollage = -1;
-            var ids = [Rez.Drawables.BgCintaVerde, Rez.Drawables.BgCintaAmbar, Rez.Drawables.BgBloques,
+            var ids = [Rez.Drawables.BgCinta3dVerde, Rez.Drawables.BgCinta3dAmbar, Rez.Drawables.BgBloques,
                 Rez.Drawables.BgReticula, null, null, Rez.Drawables.BgGeometria];
             if (theme != 4) { t.bg = WatchUi.loadResource(ids[theme]); }
             if (theme == 3) { t.grid = WatchUi.loadResource(Rez.Drawables.Grid); }

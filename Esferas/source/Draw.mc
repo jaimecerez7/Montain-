@@ -18,11 +18,11 @@ module Draw {
     }
 
     // Texto con la parte superior de las cifras/mayúsculas en y. Devuelve el ancho.
-    // Jost: altura de mayúscula ≈ 0,653 × ascendente.
+    // Jost: el borde superior de las mayúsculas queda a 0,256 × altura de línea.
     function text(dc as Graphics.Dc, x, y, s as String, font, color, justify) as Number {
-        var a = dc.getFontAscent(font);
+        var lh = dc.getFontHeight(font);
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(x, y - (a * 0.347).toNumber(), font, s, justify);
+        dc.drawText(x, y - (lh * 0.256).toNumber(), font, s, justify);
         return dc.getTextWidthInPixels(s, font);
     }
 

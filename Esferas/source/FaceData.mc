@@ -3,6 +3,7 @@ import Toybox.Activity;
 import Toybox.Application;
 import Toybox.Lang;
 import Toybox.Math;
+import Toybox.Position;
 import Toybox.System;
 import Toybox.Time;
 import Toybox.Time.Gregorian;
@@ -43,6 +44,7 @@ class FaceData {
 
     var curveKey = -1;         // día del año con el que se calculó sunCurve
     var lat = null;
+    var approxLocation = false;   // true mientras se usa la ubicación aproximada
     var lon = null;
 
     function initialize() {
@@ -145,14 +147,34 @@ class FaceData {
             }
         }
         history = list;
-        if (lat == null) {
+        locate();
+    }
+
+    // Ubicación para el sol y la luna, de la más fiable a la menos:
+    // 1) actividad en curso, 2) última posición GPS del reloj, 3) la guardada, 4) aproximada (Madrid).
+    function locate() as Void {
+        try {
             var a = Activity.getActivityInfo();
-            if (a != null && a.currentLocation != null) { remember(a.currentLocation.toDegrees()); }
+            if (a != null && a.currentLocation != null) { remember(a.currentLocation.toDegrees()); return; }
+        } catch (ex) {}
+        try {
+            var pi = Position.getInfo();
+            if (pi != null && pi.position != null && pi.accuracy != null
+                && pi.accuracy != Position.QUALITY_NOT_AVAILABLE) {
+                remember(pi.position.toDegrees());
+                return;
+            }
+        } catch (ex) {}
+        if (lat == null) {
+            lat = 40.4168;     // sin ninguna ubicación todavía: horas aproximadas (centro de España)
+            lon = -3.7038;
+            approxLocation = true;
         }
     }
 
     function remember(deg as Array) as Void {
         if (deg[0] == 0 && deg[1] == 0) { return; }
+        if (approxLocation) { curveKey = -1; approxLocation = false; }
         var moved = lat == null || (lat - deg[0]).abs() > 0.05 || (lon - deg[1]).abs() > 0.05;
         lat = deg[0];
         lon = deg[1];

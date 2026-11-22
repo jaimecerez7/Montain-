@@ -15,6 +15,11 @@ class EsferasApp extends Application.AppBase {
         return [v];
     }
 
+    // Ajustes en el propio reloj: elegir la obra sin Garmin Connect.
+    function getSettingsView() as [WatchUi.Views] or [WatchUi.Views, WatchUi.InputDelegates] or Null {
+        return [new EsferasSettingsMenu(), new EsferasSettingsDelegate()];
+    }
+
     // Cambio de estilo desde Garmin Connect (Ajustes de la esfera).
     function onSettingsChanged() as Void {
         var v = view;

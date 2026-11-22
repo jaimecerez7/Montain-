@@ -26,7 +26,7 @@ class EsferasView extends WatchUi.WatchFace {
     function loadSettings() as Void {
         var t = null;
         try { t = Application.Properties.getValue("Theme"); } catch (ex) {}
-        theme = t instanceof Number && t >= 0 && t <= 5 ? t : 2;
+        theme = t instanceof Number && t >= 0 && t <= 6 ? t : 2;
         loadArt();
     }
 
@@ -55,7 +55,7 @@ class EsferasView extends WatchUi.WatchFace {
             }
             loadedCollage = -1;
             var ids = [Rez.Drawables.BgCintaVerde, Rez.Drawables.BgCintaAmbar, Rez.Drawables.BgBloques,
-                Rez.Drawables.BgReticula, null];
+                Rez.Drawables.BgReticula, null, null, Rez.Drawables.BgGeometria];
             if (theme != 4) { t.bg = WatchUi.loadResource(ids[theme]); }
             if (theme == 3) { t.grid = WatchUi.loadResource(Rez.Drawables.Grid); }
             var sets = [
@@ -73,10 +73,14 @@ class EsferasView extends WatchUi.WatchFace {
                  Rez.Drawables.GlyphRe8, Rez.Drawables.GlyphRe9, Rez.Drawables.GlyphRe10],
                 [Rez.Drawables.GlyphCo0, Rez.Drawables.GlyphCo1, Rez.Drawables.GlyphCo2, Rez.Drawables.GlyphCo3,
                  Rez.Drawables.GlyphCo4, Rez.Drawables.GlyphCo5, Rez.Drawables.GlyphCo6, Rez.Drawables.GlyphCo7,
-                 Rez.Drawables.GlyphCo8, Rez.Drawables.GlyphCo9, Rez.Drawables.GlyphCo10]
+                 Rez.Drawables.GlyphCo8, Rez.Drawables.GlyphCo9, Rez.Drawables.GlyphCo10],
+                [Rez.Drawables.GlyphBa0, Rez.Drawables.GlyphBa1, Rez.Drawables.GlyphBa2, Rez.Drawables.GlyphBa3,
+                 Rez.Drawables.GlyphBa4, Rez.Drawables.GlyphBa5, Rez.Drawables.GlyphBa6, Rez.Drawables.GlyphBa7,
+                 Rez.Drawables.GlyphBa8, Rez.Drawables.GlyphBa9, Rez.Drawables.GlyphBa10]
             ];
+            var set = theme == 6 ? 5 : theme;
             var g = [];
-            for (var i = 0; i < 11; i++) { g.add(WatchUi.loadResource(sets[theme][i])); }
+            for (var i = 0; i < 11; i++) { g.add(WatchUi.loadResource(sets[set][i])); }
             t.glyphs = g;
         } catch (ex) {
             // Sin memoria para la obra: la esfera sigue funcionando con fondo liso.
@@ -131,7 +135,7 @@ class EsferasView extends WatchUi.WatchFace {
         if (dc has :setAntiAlias) { dc.setAntiAlias(true); }
         data.update();
         if (theme == 5) { cieloArt(t); }
-        else if (theme == 2) { moonArt(t); }
+        else if (theme == 2 || theme == 6) { moonArt(t); }
         else if (theme == 4) { collageArt(t); moonArt(t); }
         if (sleeping && burnIn) {
             t.aod(dc, data, System.getClockTime().min);

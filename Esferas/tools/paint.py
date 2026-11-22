@@ -528,6 +528,102 @@ def moon_sprite(side, phase):
     s = side / 908
     return im.resize((max(1, round(size * s)), max(1, round(size * s))), Image.LANCZOS)
 
+
+# ------------------------------------------------------------------ GEOMETRÍA (baldosas al gouache)
+BAU = {"mostaza": "#E3A72F", "terracota": "#C8553D", "marino": "#1F3A5F", "verde": "#2E7D5B",
+       "ceruleo": "#5D93BC", "negro": "#1C1A17", "crema": "#EFE4CF", "ladrillo": "#9E3B2C"}
+BAU_DATA = {  # baldosas de datos (x0, y0, color de fondo)
+    "sun": (39, 234, "terracota"), "temp": (117, 234, "mostaza"), "steps": (195, 234, "marino"), "moon": (273, 234, "negro"),
+}
+TIME_BAND = (-20, 104, 410, 214)
+DATE_STRIP = (104, 60, 286, 90)
+
+
+def gouache(color, seed):
+    """Gouache: color plano con leve variación, marcas de pincel y grano de papel."""
+    img = solid(color) * (1 + 0.06 * (fbm(5, seed, 3) - 0.5)[..., None] * 2)
+    img = img * (1 + 0.035 * (noise(60, 12, seed + 1) - 0.5)[..., None] * 2)
+    return linen(img, 0.05, seed + 2)
+
+
+def circle_pts(cx, cy, r, a0=0, a1=2 * np.pi, n=48, center=False):
+    pts = [(cx + np.cos(a) * r, cy + np.sin(a) * r) for a in np.linspace(a0, a1, n)]
+    return pts + [(cx, cy)] if center else pts
+
+
+def tile_motif(img, x, y, s, motif, c1, c2, seed):
+    """Pinta una baldosa: fondo c1 y figura c2 (bordes ligeramente pintados)."""
+    img = over(img, gouache(BAU[c1], seed), rect_mask(x + 0.8, y + 0.8, x + s - 0.8, y + s - 0.8, seed, rough=0.8, soft=0.6))
+    g = gouache(BAU[c2], seed + 7)
+    h = s / 2
+    if motif == "quarter":
+        corner = [(x, y), (x + s, y), (x + s, y + s), (x, y + s)][seed % 4]
+        a0 = [0, np.pi / 2, np.pi, 1.5 * np.pi][seed % 4]
+        pts = circle_pts(corner[0], corner[1], s * 0.98, a0, a0 + np.pi / 2, center=True)
+    elif motif == "half":
+        side = seed % 4
+        cx, cy = [(x + h, y + s), (x, y + h), (x + h, y), (x + s, y + h)][side]
+        a0 = [np.pi, 1.5 * np.pi, 0, 0.5 * np.pi][side]
+        pts = circle_pts(cx, cy, h * 0.98, a0, a0 + np.pi, center=True)
+    elif motif == "circle":
+        pts = circle_pts(x + h, y + h, h * 0.72)
+    elif motif == "dot":
+        img = over(img, g, poly_mask(circle_pts(x + h, y + h, h * 0.72), 0.5))
+        g = gouache(BAU[c1], seed + 9)
+        pts = circle_pts(x + h, y + h, h * 0.28)
+    elif motif == "triangle":
+        pts = [(x, y + s), (x + s, y + s), (x + (s if seed % 2 else 0), y)]
+    elif motif == "stripes":
+        for k in range(3):
+            bx = x + s * (0.18 + k * 0.26)
+            img = over(img, g, rect_mask(bx, y + s * 0.12, bx + s * 0.12, y + s * 0.88, seed + k, rough=0.6, soft=0.5))
+        return img
+    elif motif == "twin":
+        img = over(img, g, poly_mask(circle_pts(x + h, y + h / 2, h / 2 * 0.96), 0.5))
+        pts = circle_pts(x + h, y + h * 1.5, h / 2 * 0.96)
+    else:
+        return img
+    return over(img, g, poly_mask(pts, 0.5))
+
+
+def bg_geometria(seed=31):
+    rng = np.random.default_rng(seed)
+    img = linen(solid("#E6DAC2"), 0.06, seed)
+    motifs = ["quarter", "half", "circle", "dot", "triangle", "stripes", "twin", "quarter", "half"]
+    colors = ["mostaza", "terracota", "marino", "verde", "ceruleo", "negro", "crema", "ladrillo"]
+    s = 78.0
+    data_cells = {(v[0], v[1]) for v in BAU_DATA.values()}
+    prev_row = {}
+    for r in range(-1, 6):
+        for c in range(-1, 6):
+            x, y = -39 + c * s, r * s
+            if (x, y) in data_cells:
+                continue
+            c1 = colors[rng.integers(len(colors))]
+            while c1 == prev_row.get(c) or c1 == prev_row.get(c - 0.5):
+                c1 = colors[rng.integers(len(colors))]
+            c2 = colors[rng.integers(len(colors))]
+            while c2 == c1:
+                c2 = colors[rng.integers(len(colors))]
+            img = tile_motif(img, x, y, s, motifs[rng.integers(len(motifs))], c1, c2, int(rng.integers(1, 10_000)))
+            prev_row[c] = c1
+    # baldosas de datos: fondo y figura fija que acompaña al dato
+    for name, (x, y, c) in BAU_DATA.items():
+        img = over(img, gouache(BAU[c], 900 + x), rect_mask(x + 0.8, y + 0.8, x + s - 0.8, y + s - 0.8, 901 + x, rough=0.8, soft=0.6))
+        if name == "sun":    # medio sol que asoma por abajo
+            img = over(img, gouache(BAU["mostaza"], 910), poly_mask(circle_pts(x + 39, y + 78, 22, np.pi, 2 * np.pi, center=True), 0.5))
+        if name == "temp":   # cuarto de círculo terracota en una esquina
+            img = over(img, gouache(BAU["crema"], 911), poly_mask(circle_pts(x + 78, y + 78, 26, np.pi, 1.5 * np.pi, center=True), 0.5))
+        if name == "moon":   # estrellita: punto crema
+            img = over(img, solid("#EFE4CF"), poly_mask(circle_pts(x + 62, y + 14, 2.2), 0.4))
+    # franja de la hora (azul marino) y tira de la fecha (negra), con sombra suave
+    x0, y0, x1, y1 = TIME_BAND
+    img = img * (1 - 0.25 * rect_mask(x0, y0 + 3, x1, y1 + 4, 920, rough=1.5, soft=3))[..., None]
+    img = over(img, gouache("#1F3A5F", 921), rect_mask(x0, y0, x1, y1, 922, rough=1.2, soft=0.7))
+    x0, y0, x1, y1 = DATE_STRIP
+    img = over(img, gouache("#1C1A17", 923), rect_mask(x0, y0, x1, y1, 924, rough=1.0, soft=0.6))
+    return to_image(vignette(img, 0.08))
+
 ART = {
     "cinta_verde": lambda: bg_cinta("#D4CFC3", ("#0F2A1E", "#2C5A40", "#7FA88A"), "#16211B", 70),
     "cinta_ambar": lambda: bg_cinta("#EEEAE3", ("#9C3A06", "#E7801A", "#FFD15A"), "#5A2A08", 80),
@@ -536,6 +632,7 @@ ART = {
     "collage": lambda: bg_collage(91),
     "collage2": lambda: bg_collage(191),
     "collage3": lambda: bg_collage(291),
+    "geometria": bg_geometria,
     "cielo_noche": lambda: bg_cielo("noche"),
     "cielo_alba": lambda: bg_cielo("alba"),
     "cielo_dia": lambda: bg_cielo("dia"),

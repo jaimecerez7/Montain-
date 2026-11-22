@@ -161,11 +161,25 @@ def tilt(arr, deg):
     return np.asarray(im.rotate(deg, resample=Image.BICUBIC), np.float32) / 255.0
 
 
+def screen(ch, seed):
+    """Serigrafía: cifra geométrica crema con un leve registro desplazado en negro."""
+    m = font_mask(ch, 112, 600, top_pad=PAD + 1, bottom_pad=PAD + 3)
+    h, w = m.shape
+    fill = smooth(0.45, 0.55, blur(m, 0.4 * K))
+    dy, dx = int(2.2 * K), int(2.2 * K)
+    off = np.pad(fill, ((dy, 0), (dx, 0)))[:h, :w]
+    grain = noise(h, w, h // 3, w // 3, seed)
+    rgb = np.where(fill[..., None] > 0.5, hexrgb("#F1E6D0") * (0.94 + 0.1 * grain)[..., None], hexrgb("#141312"))
+    a = np.maximum(fill, off * 0.9)
+    return rgba(rgb * a[..., None] / np.maximum(a[..., None], 1e-3), a)
+
+
 STYLES = {
     "Cv": lambda ch, i: painted(ch, 700 + i, "#123222", "#2F6247", "#8DB89A"),
     "Ca": lambda ch, i: painted(ch, 800 + i, "#7A2E06", "#D4701A", "#FFD36B"),
     "Bl": lambda ch, i: cream_paint(ch, 900 + i),
     "Re": lambda ch, i: stamped(ch, 1000 + i),
+    "Ba": lambda ch, i: screen(ch, 1200 + i),
     "Co": lambda ch, i: tilt(cutout(ch, 1100 + i), [-4, 3, -2.5, 4.5, -3, 2.5, -4.5, 3.5, -1.5, 3, 0][i]),
 }
 

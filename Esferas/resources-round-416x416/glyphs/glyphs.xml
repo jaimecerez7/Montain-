@@ -43,6 +43,17 @@
     <bitmap id="GlyphRe8" filename="gre8.png"/>
     <bitmap id="GlyphRe9" filename="gre9.png"/>
     <bitmap id="GlyphRe10" filename="gre10.png"/>
+    <bitmap id="GlyphBa0" filename="gba0.png"/>
+    <bitmap id="GlyphBa1" filename="gba1.png"/>
+    <bitmap id="GlyphBa2" filename="gba2.png"/>
+    <bitmap id="GlyphBa3" filename="gba3.png"/>
+    <bitmap id="GlyphBa4" filename="gba4.png"/>
+    <bitmap id="GlyphBa5" filename="gba5.png"/>
+    <bitmap id="GlyphBa6" filename="gba6.png"/>
+    <bitmap id="GlyphBa7" filename="gba7.png"/>
+    <bitmap id="GlyphBa8" filename="gba8.png"/>
+    <bitmap id="GlyphBa9" filename="gba9.png"/>
+    <bitmap id="GlyphBa10" filename="gba10.png"/>
     <bitmap id="GlyphCo0" filename="gco0.png"/>
     <bitmap id="GlyphCo1" filename="gco1.png"/>
     <bitmap id="GlyphCo2" filename="gco2.png"/>

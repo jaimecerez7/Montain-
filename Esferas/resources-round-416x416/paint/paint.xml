@@ -6,6 +6,7 @@
     <bitmap id="BgCollage" filename="bg_collage.png" packingFormat="jpg"/>
     <bitmap id="BgCollage2" filename="bg_collage2.png" packingFormat="jpg"/>
     <bitmap id="BgCollage3" filename="bg_collage3.png" packingFormat="jpg"/>
+    <bitmap id="BgGeometria" filename="bg_geometria.png" packingFormat="jpg"/>
     <bitmap id="BgCieloNoche" filename="bg_cielo_noche.png" packingFormat="jpg"/>
     <bitmap id="BgCieloAlba" filename="bg_cielo_alba.png" packingFormat="jpg"/>
     <bitmap id="BgCieloDia" filename="bg_cielo_dia.png" packingFormat="jpg"/>

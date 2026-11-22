@@ -11,6 +11,7 @@ class Themes {
     const RETICULA = 3;
     const COLLAGE = 4;
     const CIELO = 5;
+    const GEOMETRIA = 6;
     // por estado del cielo: puntos del arco, montaña cercana (fondo de iconos)
     const SKY_DOT = [0x8C93B5, 0xF2D3C8, 0xDCEBF5, 0xFCE2B8, 0xE9B4A6];
     const SKY_NEAR = [0x0C1224, 0x383350, 0x2C4351, 0x3B2A30, 0x1C172E];
@@ -45,6 +46,7 @@ class Themes {
         else if (theme == RETICULA) { reticula(dc, d); }
         else if (theme == COLLAGE) { collage(dc, d); }
         else if (theme == CIELO) { cielo(dc, d); }
+        else if (theme == GEOMETRIA) { geometria(dc, d); }
         else { cinta(dc, d, theme == CINTA_VERDE); }
     }
 
@@ -248,6 +250,48 @@ class Themes {
         moonImg(dc, Draw.p(292), Draw.p(258));                                                         // mancha azul noche
         Draw.text(dc, Draw.p(292), Draw.p(280), moonPct(d), fMini, 0xD9D1BF, c);
         small(dc, Draw.p(195), Draw.p(319), [[:sunrise, d.sunrise], [:sunset, d.sunset]], [0xE6DCC8, 0xD9A22C, 0x1E1B18], 12);
+    }
+
+    // ------------------------------------------------------------ GEOMETRÍA
+    // Baldosas al gouache; cada dato vive en una baldosa con su propia geometría.
+    function geometria(dc as Graphics.Dc, d as FaceData) as Void {
+        background(dc, 0x1F3A5F);
+        var cream = 0xF1E6D0;
+        var ink = 0x1C1A17;
+        var c = Graphics.TEXT_JUSTIFY_CENTER;
+        // tira negra: fecha + batería en cinco puntos
+        Draw.text(dc, Draw.p(172), Draw.p(68), d.date, fLabel, cream, c);
+        var n = Math.round(d.battery / 20.0).toNumber();
+        var dr = Draw.p(2) < 2 ? 2 : Draw.p(2);
+        for (var i = 0; i < 5; i++) {
+            dc.setColor(i < n ? 0xE3A72F : 0x4A453F, Graphics.COLOR_TRANSPARENT);
+            dc.fillCircle(Draw.p(264 + i * 6), Draw.p(75), dr);
+        }
+        glyphTime(dc, Draw.p(195), Draw.p(116), d.time, 0);                                     // franja marino: hora
+        // sol (terracota): amanecer y atardecer sobre el medio sol
+        small(dc, Draw.p(78), Draw.p(244), [[:sunrise, d.sunrise]], [cream, 0xF6D28A, 0xC8553D], 12);
+        small(dc, Draw.p(78), Draw.p(266), [[:sunset, d.sunset]], [cream, 0xF6D28A, 0xC8553D], 12);
+        // tiempo (mostaza)
+        small(dc, Draw.p(156), Draw.p(252), [[d.cond, d.temp]], [ink, ink, 0xE3A72F], 18);
+        Draw.text(dc, Draw.p(148), Draw.p(280), d.precip, fMini, 0x5A3E10, c);
+        // pasos (marino): anillo de progreso hacia el objetivo
+        var cx = Draw.p(234);
+        var cy = Draw.p(273);
+        var r = Draw.p(27);
+        var f = d.goal > 0 ? d.steps.toFloat() / d.goal : 0.0;
+        if (f > 1) { f = 1.0; }
+        Draw.pen(dc, 5);
+        dc.setColor(0x34507A, Graphics.COLOR_TRANSPARENT);
+        dc.drawCircle(cx, cy, r);
+        if (f > 0.005) {
+            dc.setColor(0xE3A72F, Graphics.COLOR_TRANSPARENT);
+            dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE, 90, 90 - (360 * f).toNumber());
+        }
+        var tenths = Math.round(d.steps / 100.0).toNumber();
+        Draw.text(dc, cx, cy - Draw.p(7), (tenths / 10).toString() + "," + (tenths % 10).toString() + "K", fSmall, cream, c);
+        // luna (negro)
+        moonImg(dc, Draw.p(312), Draw.p(264));
+        Draw.text(dc, Draw.p(312), Draw.p(286), moonPct(d), fMini, 0xD9D1BF, c);
     }
 
     // ------------------------------------------------------------ CIELO PINTADO

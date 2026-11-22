@@ -19,9 +19,9 @@ const F = {
 let dc, k = 1;
 const P = v => Math.round(v * k);
 const IMG = {};
-const GLYPH_STYLES = ['cv', 'ca', 'bl', 're', 'co'];
+const GLYPH_STYLES = ['cv', 'ca', 'bl', 're', 'co', 'ba'];
 window.loadArt = () => Promise.all([
-  ...['bg_cinta_verde','bg_cinta_ambar','bg_bloques','bg_reticula','bg_collage','bg_collage2','bg_collage3','grid','sun',
+  ...['bg_cinta_verde','bg_cinta_ambar','bg_bloques','bg_reticula','bg_collage','bg_collage2','bg_collage3','bg_geometria','grid','sun',
       'bg_cielo_noche','bg_cielo_alba','bg_cielo_dia','bg_cielo_dorada','bg_cielo_ocaso',
       ...[...Array(8).keys()].map(i => 'moon' + i)].map(n => [n, '../../resources/paint/' + n + '.png']),
   ...GLYPH_STYLES.flatMap(g => [...Array(11).keys()].map(i => ['g' + g + i, '../../resources/glyphs/g' + g + i + '.png']))
@@ -172,6 +172,35 @@ function collage(d){
   row(P(195), P(319), [['sunrise', d.sunrise], ['sunset', d.sunset]], '#E6DCC8', '#D9A22C', '#1E1B18', 12, F.small);  // cinta: sol
 }
 
+// =================== GEOMETRÍA ===================
+// Baldosas al gouache; cada dato vive en una baldosa con su propia geometría.
+function geometria(d){
+  art('geometria');
+  const cream = '#F1E6D0', ink = '#1C1A17';
+  // tira negra: fecha + batería en cinco puntos
+  text(P(172), P(68), d.date, F.label, cream);
+  const n = Math.round(d.battery / 20);
+  for (let i = 0; i < 5; i++) circle(P(264 + i * 6), P(75), Math.max(1.5, P(2)), i < n ? '#E3A72F' : '#4A453F');
+  glyphTime(P(195), P(116), d.time, 'ba', 0);                                          // franja marino: hora
+  // sol (terracota): amanecer y atardecer sobre el medio sol
+  row(P(78), P(244), [['sunrise', d.sunrise]], cream, '#F6D28A', '#C8553D', 12, F.small);
+  row(P(78), P(266), [['sunset', d.sunset]], cream, '#F6D28A', '#C8553D', 12, F.small);
+  // tiempo (mostaza)
+  row(P(156), P(252), [[d.cond, d.temp + '°']], ink, ink, '#E3A72F', 18, F.small);
+  text(P(148), P(280), d.precip + '%', F.mini, '#5A3E10');
+  // pasos (marino): anillo de progreso hacia el objetivo
+  const cx = P(234), cy = P(273), r = P(27), f = Math.min(1, d.steps / d.goal);
+  dc.lineWidth = Math.max(2, P(5)); dc.lineCap = 'butt';
+  dc.strokeStyle = '#34507A'; dc.beginPath(); dc.arc(cx, cy, r, 0, 7); dc.stroke();
+  dc.strokeStyle = '#E3A72F'; dc.beginPath(); dc.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * f); dc.stroke();
+  const k1 = (Math.round(d.steps / 100) / 10).toFixed(1).replace('.', ',') + 'K';
+  text(cx, cy - P(7), k1, F.small, cream);
+  // luna (negro)
+  const mp = IMG['moon' + d.moonIdx];
+  dc.drawImage(mp, P(312) - mp.width / 2, P(264) - mp.height / 2);
+  text(P(312), P(286), Math.round(d.moonIllum * 100) + '%', F.mini, '#D9D1BF');
+}
+
 // =================== CIELO PINTADO ===================
 // El cielo cambia con la altura real del sol; el sol recorre su arco; la luna muestra su fase.
 function skyState(d){
@@ -226,7 +255,7 @@ window.render = (theme, d, size = 390) => {
   ({ cinta_verde: d => cinta(d, true), cinta_ambar: d => cinta(d, false), bloques, reticula, collage, aod, cielo,
      cielo_noche: d => cielo({...d, state: 'noche'}), cielo_alba: d => cielo({...d, state: 'alba'}),
      cielo_dia: d => cielo({...d, state: 'dia'}), cielo_dorada: d => cielo({...d, state: 'dorada'}),
-     cielo_ocaso: d => cielo({...d, state: 'ocaso'}), collage2: collage, collage3: collage })[theme](d);
+     cielo_ocaso: d => cielo({...d, state: 'ocaso'}), collage2: collage, collage3: collage, geometria })[theme](d);
   dc.globalCompositeOperation = 'destination-in'; dc.beginPath(); dc.arc(size/2, size/2, size/2, 0, 7); dc.fill();
   dc.globalCompositeOperation = 'source-over';
 };

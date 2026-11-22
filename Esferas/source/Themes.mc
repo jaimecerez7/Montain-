@@ -10,6 +10,10 @@ class Themes {
     const BLOQUES = 2;
     const RETICULA = 3;
     const COLLAGE = 4;
+    const CIELO = 5;
+    // por estado del cielo: puntos del arco, montaña cercana (fondo de iconos)
+    const SKY_DOT = [0x8C93B5, 0xF2D3C8, 0xDCEBF5, 0xFCE2B8, 0xE9B4A6];
+    const SKY_NEAR = [0x0C1224, 0x383350, 0x2C4351, 0x3B2A30, 0x1C172E];
 
     var fTime;
     var fTimeM;
@@ -19,6 +23,8 @@ class Themes {
     var grid = null;     // retícula estampada completa (Retícula)
     var glyphs as Array = [];   // cifras pintadas del estilo activo: 0-9 y ':' (índice 10)
     var battery = 0;
+    var sun = null;      // sol pintado (Cielo)
+    var moonBmp = null;  // luna pintada en su fase (Cielo)
 
     function initialize(time, timeM, data, label) {
         fTime = time;
@@ -34,6 +40,7 @@ class Themes {
         if (theme == BLOQUES) { bloques(dc, d); }
         else if (theme == RETICULA) { reticula(dc, d); }
         else if (theme == COLLAGE) { collage(dc, d); }
+        else if (theme == CIELO) { cielo(dc, d); }
         else { cinta(dc, d, theme == CINTA_VERDE); }
     }
 
@@ -49,6 +56,7 @@ class Themes {
         else if (kind == :battery) { Draw.iconBattery(dc, x, y, s, color, bg2, battery); }
         else if (kind == :sunrise) { Draw.iconSunEvent(dc, x, y, s, color, true); }
         else if (kind == :sunset) { Draw.iconSunEvent(dc, x, y, s, color, false); }
+        else if (kind == :drop) { Draw.iconDrop(dc, x + s / 6, y + s / 8, (s * 0.7).toNumber(), color); }
         else { Draw.iconWeather(dc, kind, x, y, s, color, bg2); }
     }
 
@@ -176,6 +184,58 @@ class Themes {
         glyphTime(dc, Draw.p(195), Draw.p(112), d.time, -2);
         row(dc, Draw.p(195), Draw.p(264), [[d.cond, d.temp], [:steps, d.stepsText()], [:battery, pct(d.battery)]],
             ink, soft, paper, 20);
+    }
+
+    // ------------------------------------------------------------ CIELO PINTADO
+    // El cielo cambia con la altura real del sol; el sol recorre su arco del día; la luna
+    // muestra su fase. Los datos descansan sobre la montaña cercana.
+    function cielo(dc as Graphics.Dc, d as FaceData) as Void {
+        var st = d.skyState;
+        background(dc, SKY_NEAR[st]);
+        var cream = 0xFBF4E6;
+        var soft = 0xE6DACA;
+        var c = Graphics.TEXT_JUSTIFY_CENTER;
+        Draw.text(dc, Draw.p(195), Draw.p(28), d.date, fLabel, soft, c);
+        Draw.text(dc, Draw.p(195), Draw.p(50), d.time, fTime, cream, c);
+
+        // Recorrido del sol (punteado) y el sol en su posición real
+        var xs = Draw.p(44);
+        var xe = Draw.p(346);
+        var yh = Draw.p(232);
+        var hh = 92 * Draw.k;
+        dc.setColor(SKY_DOT[st], Graphics.COLOR_TRANSPARENT);
+        var dot = Draw.p(1.2);
+        if (dot < 1) { dot = 1; }
+        for (var i = 0; i <= 34; i++) {
+            var f = i / 34.0;
+            dc.fillCircle(xs + ((xe - xs) * f).toNumber(), yh - (Math.sin(Math.PI * f) * hh).toNumber(), dot);
+        }
+        var sp = sun;
+        if (sp != null && d.riseH != null && d.setH != null && d.sunNow > -1) {
+            var f = (d.nowH - d.riseH) / (d.setH - d.riseH);
+            if (f > -0.02 && f < 1.02) {
+                var e = d.sunNow > 0 ? d.sunNow : 0;
+                var sx = xs + ((xe - xs) * f).toNumber() - sp.getWidth() / 2;
+                var sy = yh - (e / d.peak * hh).toNumber() - sp.getHeight() / 2;
+                dc.setClip(0, 0, dc.getWidth(), Draw.p(226));   // se oculta tras las cumbres
+                dc.drawBitmap(sx, sy, sp);
+                dc.clearClip();
+            }
+        }
+        // Luna en su fase
+        var mb = moonBmp;
+        if (mb != null) {
+            dc.drawBitmap(Draw.p(84) - mb.getWidth() / 2, Draw.p(176) - mb.getHeight() / 2, mb);
+        }
+        Draw.text(dc, Draw.p(102), Draw.p(170), Math.round(d.moonIllum * 100).toNumber().toString() + "%",
+            fLabel, cream, Graphics.TEXT_JUSTIFY_LEFT);
+        // Amanecer y atardecer en los extremos del arco
+        row(dc, Draw.p(70), Draw.p(240), [[:sunrise, d.sunrise]], cream, soft, SKY_NEAR[st], 16);
+        row(dc, Draw.p(320), Draw.p(240), [[:sunset, d.sunset]], cream, soft, SKY_NEAR[st], 16);
+        // Datos sobre la montaña cercana
+        row(dc, Draw.p(195), Draw.p(298), [[d.cond, d.temp], [:drop, d.precip]], cream, soft, SKY_NEAR[st], 22);
+        row(dc, Draw.p(195), Draw.p(332), [[:steps, d.stepsText()], [:battery, pct(d.battery)]], cream, soft,
+            SKY_NEAR[st], 20);
     }
 
     // ------------------------------------------------------------ siempre encendida (AMOLED)

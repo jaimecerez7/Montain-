@@ -11,6 +11,8 @@ class EsferasView extends WatchUi.WatchFace {
     var sleeping = false;
     var burnIn = false;
     var lastWidth = 0;
+    var loadedSky = -1;    // estado del cielo cuya pintura está cargada
+    var loadedMoon = -1;
 
     function initialize() {
         WatchFace.initialize();
@@ -23,7 +25,7 @@ class EsferasView extends WatchUi.WatchFace {
     function loadSettings() as Void {
         var t = null;
         try { t = Application.Properties.getValue("Theme"); } catch (ex) {}
-        theme = t instanceof Number && t >= 0 && t <= 4 ? t : 0;
+        theme = t instanceof Number && t >= 0 && t <= 5 ? t : 5;
         loadArt();
     }
 
@@ -41,6 +43,14 @@ class EsferasView extends WatchUi.WatchFace {
         t.grid = null;
         t.glyphs = [];
         try {
+            loadedSky = -1;
+            loadedMoon = -1;
+            t.sun = null;
+            t.moonBmp = null;
+            if (theme == 5) {
+                t.sun = WatchUi.loadResource(Rez.Drawables.Sun);
+                return;   // el cielo y la luna se cargan en cieloArt() según la hora
+            }
             var ids = [Rez.Drawables.BgCintaVerde, Rez.Drawables.BgCintaAmbar, Rez.Drawables.BgBloques,
                 Rez.Drawables.BgReticula, Rez.Drawables.BgCollage];
             t.bg = WatchUi.loadResource(ids[theme]);
@@ -73,6 +83,25 @@ class EsferasView extends WatchUi.WatchFace {
         }
     }
 
+    // Cielo: carga la pintura del momento del día y la luna de la fase actual (solo si cambian).
+    function cieloArt(t as Themes) as Void {
+        try {
+            if (data.skyState != loadedSky) {
+                var skies = [Rez.Drawables.BgCieloNoche, Rez.Drawables.BgCieloAlba, Rez.Drawables.BgCieloDia,
+                    Rez.Drawables.BgCieloDorada, Rez.Drawables.BgCieloOcaso];
+                t.bg = null;
+                t.bg = WatchUi.loadResource(skies[data.skyState]);
+                loadedSky = data.skyState;
+            }
+            if (data.moonIdx != loadedMoon) {
+                var moons = [Rez.Drawables.Moon0, Rez.Drawables.Moon1, Rez.Drawables.Moon2, Rez.Drawables.Moon3,
+                    Rez.Drawables.Moon4, Rez.Drawables.Moon5, Rez.Drawables.Moon6, Rez.Drawables.Moon7];
+                t.moonBmp = WatchUi.loadResource(moons[data.moonIdx]);
+                loadedMoon = data.moonIdx;
+            }
+        } catch (ex) {}
+    }
+
     function onUpdate(dc as Graphics.Dc) as Void {
         var w = dc.getWidth();
         Draw.k = w / 390.0;
@@ -80,6 +109,7 @@ class EsferasView extends WatchUi.WatchFace {
         if (t == null) { return; }
         if (dc has :setAntiAlias) { dc.setAntiAlias(true); }
         data.update();
+        if (theme == 5) { cieloArt(t); }
         if (sleeping && burnIn) {
             t.aod(dc, data, System.getClockTime().min);
         } else {

@@ -19,7 +19,9 @@ const P = v => Math.round(v * k);
 const IMG = {};
 const GLYPH_STYLES = ['cv', 'ca', 'bl', 're', 'co'];
 window.loadArt = () => Promise.all([
-  ...['bg_cinta_verde','bg_cinta_ambar','bg_bloques','bg_reticula','bg_collage','grid'].map(n => [n, '../../resources/paint/' + n + '.png']),
+  ...['bg_cinta_verde','bg_cinta_ambar','bg_bloques','bg_reticula','bg_collage','grid','sun',
+      'bg_cielo_noche','bg_cielo_alba','bg_cielo_dia','bg_cielo_dorada','bg_cielo_ocaso',
+      ...[...Array(8).keys()].map(i => 'moon' + i)].map(n => [n, '../../resources/paint/' + n + '.png']),
   ...GLYPH_STYLES.flatMap(g => [...Array(11).keys()].map(i => ['g' + g + i, '../../resources/glyphs/g' + g + i + '.png']))
 ].map(([n, src]) => new Promise(ok => { const im = new Image(); im.onload = () => { IMG[n] = im; ok(); }; im.src = src; })));
 // Hora con cifras pintadas: cada cifra trae PAD px de margen a cada lado.
@@ -144,6 +146,48 @@ function collage(d){
   row(P(195), P(264), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)], ['battery', d.battery + '%']], ink, soft, paper, 20);
 }
 
+// =================== CIELO PINTADO ===================
+// El cielo cambia con la altura real del sol; el sol recorre su arco; la luna muestra su fase.
+function skyState(d){
+  const e = d.sunNow, morning = d.nowH < (d.riseH + d.setH) / 2;
+  if (e < -8) return 'noche';
+  if (e >= 12) return 'dia';
+  if (morning) return 'alba';
+  return e >= -1 ? 'dorada' : 'ocaso';
+}
+function cielo(d){
+  const st = d.state || skyState(d);
+  art('cielo_' + st);
+  const cream = '#FBF4E6', soft = '#E6DACA';
+  text(P(195), P(28), d.date, F.label, soft);
+  text(P(195), P(50), d.time, F.time, cream);
+  // Arco del sol: recorrido punteado del día y el sol en su posición real.
+  const xs = P(44), xe = P(346), yh = P(232), H = 92 * k, peak = Math.max(1, d.peak);
+  const X = f => xs + (xe - xs) * f;
+  for (let f = 0; f <= 1.0001; f += 1 / 34) {
+    const y = yh - Math.sin(Math.PI * f) * H;
+    circle(X(f), y, Math.max(1, P(1.2)), 'rgba(251,244,230,0.55)');
+  }
+  if (d.sunNow > -1) {
+    const f = (d.nowH - d.riseH) / (d.setH - d.riseH);
+    if (f > -0.02 && f < 1.02) {
+      dc.save(); dc.beginPath(); dc.rect(0, 0, S*k, P(226)); dc.clip();
+      const sp = IMG.sun; dc.drawImage(sp, X(f) - sp.width / 2, yh - Math.max(0, d.sunNow) / peak * H - sp.height / 2);
+      dc.restore();
+    }
+  }
+  // Luna con su fase real
+  const mi = d.moonIdx, mp = IMG['moon' + mi];
+  dc.drawImage(mp, P(84) - mp.width / 2, P(176) - mp.height / 2);
+  text(P(102), P(170), Math.round(d.moonIllum * 100) + '%', F.label, cream, 'l');
+  // Amanecer y atardecer en los extremos del arco
+  row(P(70), P(240), [['sunrise', d.sunrise]], cream, soft, '#000', 16);
+  row(P(320), P(240), [['sunset', d.sunset]], cream, soft, '#000', 16);
+  // Datos sobre la montaña cercana
+  row(P(195), P(298), [[d.cond, d.temp + '°'], ['drop', d.precip + '%']], cream, soft, '#1C2433', 22);
+  row(P(195), P(332), [['steps', fmtSteps(d.steps)], ['battery', d.battery + '%']], cream, soft, '#1C2433', 20);
+}
+
 function aod(d){
   rect(0, 0, S*k, S*k, '#000');
   text(P(195), P(120), d.time, F.time, '#9A9A9A');
@@ -153,7 +197,10 @@ function aod(d){
 window.render = (theme, d, size = 390) => {
   const cv = document.getElementById('c'); cv.width = cv.height = size; k = size / S;
   dc = cv.getContext('2d'); window.__batt = d.battery / 100;
-  ({ cinta_verde: d => cinta(d, true), cinta_ambar: d => cinta(d, false), bloques, reticula, collage, aod })[theme](d);
+  ({ cinta_verde: d => cinta(d, true), cinta_ambar: d => cinta(d, false), bloques, reticula, collage, aod, cielo,
+     cielo_noche: d => cielo({...d, state: 'noche'}), cielo_alba: d => cielo({...d, state: 'alba'}),
+     cielo_dia: d => cielo({...d, state: 'dia'}), cielo_dorada: d => cielo({...d, state: 'dorada'}),
+     cielo_ocaso: d => cielo({...d, state: 'ocaso'}) })[theme](d);
   dc.globalCompositeOperation = 'destination-in'; dc.beginPath(); dc.arc(size/2, size/2, size/2, 0, 7); dc.fill();
   dc.globalCompositeOperation = 'source-over';
 };

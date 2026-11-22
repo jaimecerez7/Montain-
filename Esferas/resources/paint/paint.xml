@@ -4,5 +4,19 @@
     <bitmap id="BgBloques" filename="bg_bloques.png" packingFormat="jpg"/>
     <bitmap id="BgReticula" filename="bg_reticula.png" packingFormat="jpg"/>
     <bitmap id="BgCollage" filename="bg_collage.png" packingFormat="jpg"/>
+    <bitmap id="BgCieloNoche" filename="bg_cielo_noche.png" packingFormat="jpg"/>
+    <bitmap id="BgCieloAlba" filename="bg_cielo_alba.png" packingFormat="jpg"/>
+    <bitmap id="BgCieloDia" filename="bg_cielo_dia.png" packingFormat="jpg"/>
+    <bitmap id="BgCieloDorada" filename="bg_cielo_dorada.png" packingFormat="jpg"/>
+    <bitmap id="BgCieloOcaso" filename="bg_cielo_ocaso.png" packingFormat="jpg"/>
     <bitmap id="Grid" filename="grid.png"/>
+    <bitmap id="Sun" filename="sun.png"/>
+    <bitmap id="Moon0" filename="moon0.png"/>
+    <bitmap id="Moon1" filename="moon1.png"/>
+    <bitmap id="Moon2" filename="moon2.png"/>
+    <bitmap id="Moon3" filename="moon3.png"/>
+    <bitmap id="Moon4" filename="moon4.png"/>
+    <bitmap id="Moon5" filename="moon5.png"/>
+    <bitmap id="Moon6" filename="moon6.png"/>
+    <bitmap id="Moon7" filename="moon7.png"/>
 </drawables>

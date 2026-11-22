@@ -33,6 +33,9 @@ class FaceData {
     var sunCurve as Array or Null = null; // elevaciones (grados) de 0 h a 24 h
     var sunNow = 0.0;
     var battery = 0;
+    var peak = 30.0;           // elevación máxima del sol hoy (grados)
+    var moonIdx = 0;           // fase de la luna en 8 pasos (0 nueva, 4 llena)
+    var skyState = 2;          // 0 noche, 1 alba, 2 día, 3 hora dorada, 4 ocaso
     var nextSunrise = false;   // true: el siguiente evento es el amanecer
 
     var curveKey = -1;         // día del año con el que se calculó sunCurve
@@ -63,7 +66,11 @@ class FaceData {
         var m = Astro.moon(now.value());
         moonIllum = m[0];
         waxing = m[1];
+        var a = Math.acos(1 - 2 * moonIllum) / (2 * Math.PI);          // 0..0,5
+        var frac = waxing ? a : 1 - a;
+        moonIdx = Math.round(frac * 8).toNumber() % 8;
         updateSun(g.year as Number, g.month as Number, g.day as Number, ct, ds.is24Hour);
+        skyState = computeSky();
     }
 
     function clock(h as Number, m as Number, is24 as Boolean) as String {
@@ -156,7 +163,24 @@ class FaceData {
             }
             sunCurve = c;
             curveKey = doy;
+            peak = 1.0;
+            for (var i = 0; i < c.size(); i++) { if (c[i] > peak) { peak = c[i]; } }
         }
+    }
+
+    // Cielo según la altura real del sol (o según la hora si aún no hay ubicación).
+    function computeSky() as Number {
+        if (lat == null || riseH == null || setH == null) {
+            if (nowH < 7 || nowH >= 20.5) { return 0; }
+            if (nowH < 9.5) { return 1; }
+            if (nowH < 17) { return 2; }
+            return nowH < 19 ? 3 : 4;
+        }
+        var e = sunNow;
+        if (e < -8) { return 0; }
+        if (e >= 12) { return 2; }
+        if (nowH < (riseH + setH) / 2) { return 1; }
+        return e >= -1 ? 3 : 4;
     }
 
     function clockH(hours, is24 as Boolean) as String {

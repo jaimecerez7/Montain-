@@ -342,12 +342,111 @@ def ink_lines(img, paths, color, width, seed):
 
 
 # ------------------------------------------------------------------ salida
+
+# ------------------------------------------------------------------ CIELO PINTADO
+# Cinco cielos según la altura real del sol; montañas en tres capas con perspectiva aérea.
+SKIES = {
+    #          cielo arriba, cielo horizonte, nubes, montaña lejana, media, cercana
+    "noche":  ("#0A1430", "#22325C", None,      "#202B4A", "#151D35", "#0C1224"),
+    "alba":   ("#4E6E9E", "#F0B9A0", "#F6CDB8", "#8D7F9C", "#5E5577", "#383350"),
+    "dia":    ("#3F82C2", "#C4DDEB", "#F3F6F6", "#7F99AA", "#4C697A", "#2C4351"),
+    "dorada": ("#5D79A3", "#F4BA62", "#FBD9A0", "#A3735C", "#6C4A45", "#3B2A30"),
+    "ocaso":  ("#24295A", "#E0876A", "#B9708E", "#4C3B5E", "#33284A", "#1C172E"),
+}
+RIDGES = [  # (alturas de control de izquierda a derecha, semilla): cumbres, collados y laderas
+    ([236, 228, 214, 196, 218, 226, 204, 182, 200, 222, 230, 212, 224, 236], 1),
+    ([262, 250, 238, 248, 256, 236, 224, 240, 252, 246, 232, 244, 258, 262], 2),
+    ([290, 282, 276, 284, 272, 280, 288, 278, 270, 276, 286, 280, 274, 290], 3),
+]
+
+
+def ridge_mask(heights, seed):
+    xs = np.linspace(-20, 410, len(heights))
+    pts = [(-40, 430)] + [(x, h) for x, h in zip(xs, heights)] + [(430, 430)]
+    rng = np.random.default_rng(seed)
+    line = spline(list(zip(xs, heights)), steps=24)
+    detail = np.cumsum(rng.normal(0, 0.9, len(line)))
+    detail = detail - np.convolve(detail, np.ones(25) / 25, mode="same")      # rugosidad de cresta
+    line = [(x, y + d) for (x, y), d in zip(line, detail)]
+    m = poly_mask([(-40, 430)] + line + [(430, 430)], blur=0.4)
+    return m * (1 - 0.0 * pts[0][0])
+
+
+def bg_cielo(state):
+    top, hor, cloud, c1, c2, c3 = SKIES[state]
+    g = smooth(0, 1, (yy - 0) / 250)[..., None]
+    img = hexrgb(top) * (1 - g) + hexrgb(hor) * g
+    rng = np.random.default_rng(len(state))
+    # pinceladas horizontales en el cielo (cielo pintado, no degradado digital)
+    marks = 0.5 * noise(40, 150, 120 + len(state)) + 0.5 * fbm(5, 122, 3)
+    img = img * (1 + 0.035 * (marks - 0.5)[..., None] * 2)
+    if cloud:
+        for i in range(6):
+            cx, cy = rng.uniform(0, 390), rng.uniform(160, 228)
+            w, h = rng.uniform(70, 160), rng.uniform(5, 10)
+            pts = [(cx + np.cos(q) * w / 2, cy + np.sin(q) * h / 2 * (1.25 if np.sin(q) < 0 else 0.7))
+                   for q in np.linspace(0, 2 * np.pi, 24)[:-1]]
+            m = poly_mask(pts, blur=2.5) * (0.7 + 0.3 * noise(20, 60, 140 + i))
+            img = over(img, hexrgb(cloud), m * 0.6)
+    if state == "noche":
+        stars = smooth(0.985, 0.999, noise(N // 2, N // 2, 150)) * smooth(250, 60, yy)
+        img = over(img, hexrgb("#F4EEDC"), stars)
+    for (hs, sd), col, haze in zip(RIDGES, (c1, c2, c3), (0.25, 0.12, 0.0)):
+        m = ridge_mask(hs, sd)
+        fill = mottle(solid(col), 0.08, 160 + sd, 5)
+        fill = fill * (1 + 0.05 * (noise(160, 12, 170 + sd) - 0.5)[..., None] * 2)   # pincel seco vertical
+        fill = fill * (1 - haze) + hexrgb(hor) * haze                                 # perspectiva aérea
+        img = over(img, fill, m)
+    return to_image(vignette(linen(img, 0.05, 180), 0.14))
+
+
+def sun_sprite(side):
+    """Sol pintado: disco cálido con borde de pincel."""
+    r = 13.0
+    size = int(np.ceil((2 * r + 4) * K))
+    yy_, xx_ = np.mgrid[0:size, 0:size].astype(np.float32) / K
+    d = np.hypot(xx_ - (r + 2), yy_ - (r + 2))
+    rough = (noise(size // 6, size // 6, 190, n=size) - 0.5) * 1.6
+    a = 1 - smooth(r - 0.6, r + 0.6, d + rough)
+    core = hexrgb("#FFF4D6") * (1 - smooth(0, r, d))[..., None] + hexrgb("#F7C46A") * smooth(0, r, d)[..., None]
+    im = Image.fromarray((np.dstack([np.clip(core, 0, 1), a]) * 255).astype(np.uint8), "RGBA")
+    s = side / 908
+    return im.resize((max(1, round(size * s)), max(1, round(size * s))), Image.LANCZOS)
+
+
+def moon_sprite(side, phase):
+    """Luna pintada en una de 8 fases (0 = nueva, 4 = llena); la sombra deja ver el disco."""
+    r = 12.0
+    size = int(np.ceil((2 * r + 4) * K))
+    yy_, xx_ = np.mgrid[0:size, 0:size].astype(np.float32) / K
+    x, y = xx_ - (r + 2), yy_ - (r + 2)
+    d = np.hypot(x, y)
+    disc = 1 - smooth(r - 0.5, r + 0.5, d)
+    frac = phase / 8.0                                   # 0..1 a lo largo del ciclo
+    illum = (1 - np.cos(2 * np.pi * frac)) / 2
+    k = 1 - 2 * illum                                     # posición del terminador
+    yy2 = np.sqrt(np.clip(r * r - y * y, 0, None))
+    waxing = frac <= 0.5
+    side_x = x if waxing else -x
+    lit = (side_x >= 0) & (side_x >= k * yy2) | (side_x < 0) & (-side_x <= -k * yy2)
+    lit = lit.astype(np.float32) if illum > 0.02 else np.zeros_like(x)
+    maria = 0.88 + 0.12 * noise(size // 5, size // 5, 200, n=size)  # mares lunares
+    rgb = hexrgb("#F3ECDC") * maria[..., None] * lit[..., None] + hexrgb("#3A4258") * (1 - lit)[..., None]
+    im = Image.fromarray((np.dstack([np.clip(rgb, 0, 1), disc]) * 255).astype(np.uint8), "RGBA")
+    s = side / 908
+    return im.resize((max(1, round(size * s)), max(1, round(size * s))), Image.LANCZOS)
+
 ART = {
     "cinta_verde": lambda: bg_cinta("#D4CFC3", ("#0F2A1E", "#2C5A40", "#7FA88A"), "#16211B", 70),
     "cinta_ambar": lambda: bg_cinta("#EEEAE3", ("#9C3A06", "#E7801A", "#FFD15A"), "#5A2A08", 80),
     "bloques": bg_bloques,
     "reticula": bg_reticula,
     "collage": bg_collage,
+    "cielo_noche": lambda: bg_cielo("noche"),
+    "cielo_alba": lambda: bg_cielo("alba"),
+    "cielo_dia": lambda: bg_cielo("dia"),
+    "cielo_dorada": lambda: bg_cielo("dorada"),
+    "cielo_ocaso": lambda: bg_cielo("ocaso"),
 }
 
 
@@ -361,11 +460,17 @@ def main():
         for name, img in arts.items():
             img.resize((side, side), Image.LANCZOS).save(d / f"bg_{name}.png")
         grid_sprite(side).save(d / "grid.png")
+        sun_sprite(side).save(d / "sun.png")
+        for ph in range(8):
+            moon_sprite(side, ph).save(d / f"moon{ph}.png")
         xml = ["<drawables>"]
         for name in ART:
             rid = "Bg" + "".join(p.capitalize() for p in name.split("_"))
             xml.append(f'    <bitmap id="{rid}" filename="bg_{name}.png" packingFormat="jpg"/>')
         xml.append('    <bitmap id="Grid" filename="grid.png"/>')
+        xml.append('    <bitmap id="Sun" filename="sun.png"/>')
+        for ph in range(8):
+            xml.append(f'    <bitmap id="Moon{ph}" filename="moon{ph}.png"/>')
         xml.append("</drawables>")
         (d / "paint.xml").write_text("\n".join(xml) + "\n")
     if preview:

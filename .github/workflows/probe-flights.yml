@@ -30,6 +30,20 @@ jobs:
           curl -sS -m 30 -A "RadarVuelos-test" -H "Content-Type: application/json" \
             -d "{\"planes\":[{\"callsign\":\"$CS\",\"lat\":40.47,\"lng\":-3.56}]}" \
             -w "\nHTTP %{http_code} %{content_type}\n" https://api.adsb.lol/api/0/routeset | head -c 2500
+      - name: adsb.lol rutas con vuelos comerciales
+        run: |
+          curl -sS -m 30 -A "RadarVuelos-test" -H "Content-Type: application/json" \
+            -d '{"planes":[{"callsign":"IBE0258","lat":40.47,"lng":-3.56},{"callsign":"RYR5RL","lat":40.47,"lng":-3.56},{"callsign":"VLG8730","lat":40.47,"lng":-3.56}]}' \
+            -w "\nHTTP %{http_code} %{content_type}\n" https://api.adsb.lol/api/0/routeset | head -c 3000
+          echo
+          echo "--- GET de una ruta"
+          curl -sS -m 30 -A "RadarVuelos-test" -w "\nHTTP %{http_code} %{content_type}\n" https://api.adsb.lol/api/0/route/IBE0258 | head -c 1500
+      - name: adsb.lol radio grande (tamaño de respuesta)
+        run: |
+          for r in 25 40; do
+            curl -sS -m 30 -A "RadarVuelos-test" -o big.json -w "radio $r nm: HTTP %{http_code} %{size_download}B\n" "https://api.adsb.lol/v2/point/51.47/-0.45/$r"
+            python3 -c 'import json; d=json.load(open("big.json")); print("  aviones:", len(d.get("ac",[])))'
+          done
       - name: airplanes.live
         run: |
           curl -sS -m 30 -A "RadarVuelos-test" -w "\nHTTP %{http_code} %{size_download}B\n" \

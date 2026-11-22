@@ -1,0 +1,228 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Jost; src: url("../../tools/fonts/Jost.ttf"); font-weight: 100 900; }
+body { margin: 0; background: #000; } canvas { display: block; }
+</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// Prototipo de las esferas: mismas primitivas que Graphics.Dc (rectángulos, polígonos,
+// círculos, líneas de 2 px, texto) para que el paso a Monkey C sea directo.
+const S = 390;
+const F = {
+  time:  { size: 124, weight: 250, track: 0 },
+  data:  { size: 27,  weight: 400, track: 0 },
+  label: { size: 19,  weight: 500, track: 3 },
+};
+let dc, k = 1;
+const P = v => Math.round(v * k);
+
+function font(f){ return `${f.weight} ${P(f.size)}px Jost`; }
+function textW(t, f){ dc.font = font(f); let w = dc.measureText(t).width; return w + P(f.track) * Math.max(0, t.length - 1); }
+// Texto con la parte superior de las mayúsculas/cifras en y (cap top), como drawTextTop en Monkey C.
+function text(x, y, t, f, col, align = 'c'){
+  dc.font = font(f); dc.fillStyle = col; dc.textBaseline = 'alphabetic';
+  const cap = P(f.size) * 0.70, w = textW(t, f);
+  let sx = align === 'c' ? x - w / 2 : (align === 'r' ? x - w : x);
+  if (!f.track) { dc.textAlign = 'left'; dc.fillText(t, sx, y + cap); return w; }
+  for (const ch of t) { dc.textAlign = 'left'; dc.fillText(ch, sx, y + cap); sx += dc.measureText(ch).width + P(f.track); }
+  return w;
+}
+function rect(x, y, w, h, col){ dc.fillStyle = col; dc.fillRect(x, y, w, h); }
+function rrect(x, y, w, h, r, col){ dc.fillStyle = col; dc.beginPath(); dc.roundRect(x, y, w, h, r); dc.fill(); }
+function poly(pts, col){ dc.fillStyle = col; dc.beginPath(); dc.moveTo(...pts[0]); for (const p of pts.slice(1)) dc.lineTo(...p); dc.closePath(); dc.fill(); }
+function circle(x, y, r, col){ dc.fillStyle = col; dc.beginPath(); dc.arc(x, y, r, 0, 7); dc.fill(); }
+function ring(x, y, r, col, lw = 2){ dc.strokeStyle = col; dc.lineWidth = lw; dc.beginPath(); dc.arc(x, y, r, 0, 7); dc.stroke(); }
+function line(x1, y1, x2, y2, col, lw = 2){ dc.strokeStyle = col; dc.lineWidth = lw; dc.lineCap = 'round'; dc.beginPath(); dc.moveTo(x1, y1); dc.lineTo(x2, y2); dc.stroke(); }
+function polyline(pts, col, lw = 2){ for (let i = 1; i < pts.length; i++) line(...pts[i-1], ...pts[i], col, lw); }
+
+// ---- Iconos: trazo uniforme de 2 px, caja de 'sz' px ----
+function icon(kind, x, y, sz, col, bg){
+  const s = sz, h = s / 2;
+  if (kind === 'sunrise' || kind === 'sunset'){
+    const cy = y + s * 0.70;
+    line(x, cy, x + s, cy, col);
+    // medio sol
+    dc.strokeStyle = col; dc.lineWidth = 2; dc.beginPath(); dc.arc(x + h, cy, s * 0.26, Math.PI, 0); dc.stroke();
+    for (const a of [-150, -120, -90, -60, -30]){ const r = a * Math.PI / 180;
+      line(x + h + Math.cos(r) * s * 0.38, cy + Math.sin(r) * s * 0.38, x + h + Math.cos(r) * s * 0.50, cy + Math.sin(r) * s * 0.50, col); }
+    const ay = kind === 'sunrise' ? y + s * 0.92 : y + s * 0.84, dir = kind === 'sunrise' ? -1 : 1;
+    line(x + h - s*0.12, ay - dir * s*0.06, x + h, ay + dir * s*0.06, col); line(x + h + s*0.12, ay - dir * s*0.06, x + h, ay + dir * s*0.06, col);
+    return;
+  }
+  if (kind === 'drop'){
+    const cx = x + h, r = s * 0.27;
+    poly([[cx, y + s*0.08], [cx + r, y + s*0.58], [cx - r, y + s*0.58]], col);
+    circle(cx, y + s*0.62, r, col); return;
+  }
+  if (kind === 'steps'){
+    dc.fillStyle = col;
+    dc.beginPath(); dc.ellipse(x + s*0.30, y + s*0.40, s*0.13, s*0.22, 0, 0, 7); dc.fill();
+    circle(x + s*0.30, y + s*0.76, s*0.08, col);
+    dc.beginPath(); dc.ellipse(x + s*0.70, y + s*0.30, s*0.13, s*0.22, 0, 0, 7); dc.fill();
+    circle(x + s*0.70, y + s*0.66, s*0.08, col); return;
+  }
+  if (kind === 'cloud' || kind === 'rain' || kind === 'snow' || kind === 'sun' || kind === 'partly'){
+    if (kind === 'sun' || kind === 'partly'){
+      const cx = kind === 'sun' ? x + h : x + s*0.64, cy = kind === 'sun' ? y + h : y + s*0.34, r = s * (kind === 'sun' ? 0.20 : 0.15);
+      ring(cx, cy, r, col);
+      for (let i = 0; i < 8; i++){ const a = i * Math.PI / 4; line(cx + Math.cos(a)*r*1.55, cy + Math.sin(a)*r*1.55, cx + Math.cos(a)*r*2.1, cy + Math.sin(a)*r*2.1, col); }
+      if (kind === 'sun') return;
+    }
+    // nube: silueta en color y la misma silueta 2 px más pequeña en el fondo
+    const by = (kind === 'rain' || kind === 'snow') ? y + s*0.60 : y + s*0.74, w2 = Math.max(1, P(2));
+    const parts = [[0.30,-0.14,0.17],[0.55,-0.22,0.22],[0.76,-0.12,0.14]];
+    for (const pass of [0, 1]) { const c = pass ? bg : col, ins = pass ? w2 : 0;
+      for (const q of parts) circle(x + s*q[0], by + s*q[1], s*q[2] - ins, c);
+      const lx = x + s*0.13 + ins, rx = x + s*0.90 - ins, top = by - s*0.16;
+      rrect(lx, top + ins, rx - lx, by - top - 2*ins + (pass ? 0 : 2), s*0.12, c); }
+    if (kind === 'rain') for (const fx of [0.34, 0.54, 0.74]) line(x + s*fx, by + s*0.14, x + s*(fx-0.07), by + s*0.32, col);
+    if (kind === 'snow') for (const fx of [0.34, 0.54, 0.74]) circle(x + s*(fx-0.03), by + s*0.24, s*0.05 + 1, col);
+    return;
+  }
+}
+
+// Luna con su fase real: disco en sombra + parte iluminada (semicírculo + terminador elíptico).
+function moon(cx, cy, r, illum, waxing, lit, dark){
+  circle(cx, cy, r, dark);
+  const pts = [], side = waxing ? 1 : -1, tx = r * (1 - 2 * illum);  // terminador
+  for (let i = 0; i <= 16; i++){ const a = -Math.PI/2 + Math.PI * i / 16; pts.push([cx + side * Math.cos(a) * r, cy + Math.sin(a) * r]); }
+  for (let i = 16; i >= 0; i--){ const a = -Math.PI/2 + Math.PI * i / 16; pts.push([cx + side * Math.cos(a) * tx, cy + Math.sin(a) * r]); }
+  poly(pts, lit);
+}
+
+const fmtSteps = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+// =================== 1. CAMPOS (Rothko) ===================
+// Cada banda: varias capas anidadas con tonos muy próximos → borde difuso, como pintura.
+function band(y0, y1, cols){
+  cols.forEach((c, i) => rrect(P(-30 + i*6), P(y0 + i*3), P(450 - i*12), P(y1 - y0 - i*6), P(14), c));
+}
+function campos(d){
+  rect(0, 0, S*k, S*k, '#2B1E18');
+  band(-30, 228, ['#1A2236', '#1B263D', '#1D2A44', '#1F2E4A', '#213250']);
+  band(236, 300, ['#9E3B1C', '#AA421F', '#B44922', '#BC4F25', '#C25528']);
+  band(308, 430, ['#D8C8A9', '#DFD0B2', '#E5D8BC', '#E9DDC3', '#ECE1C9']);
+  const cream = '#EFE4CB', soft = '#B4AC9A', warm = '#F7E9D2', ink = '#3A2A20';
+  text(P(195), P(58), d.date, F.label, soft);
+  text(P(195), P(86), d.time, F.time, cream);
+  weatherRow(P(195), P(188), d, cream, soft, '#21314F');
+  // Banda óxido: amanecer · línea del día con el sol en su sitio · atardecer
+  const y = P(258), ic = P(24);
+  icon('sunrise', P(52), y - P(3), ic, warm); text(P(82), y, d.sunrise, F.data, warm, 'l');
+  text(P(308), y, d.sunset, F.data, warm, 'r'); icon('sunset', P(314), y - P(3), ic, warm);
+  const x0 = P(166), x1 = P(224), ly = y + P(10);
+  line(x0, ly, x1, ly, '#E3967A');
+  circle(x0 + (x1 - x0) * d.dayFrac, ly, P(5), warm);
+  // Banda crema: pasos · luna
+  icon('steps', P(96), P(330), P(22), ink); text(P(126), P(330), fmtSteps(d.steps), F.data, ink, 'l');
+  moon(P(246), P(343), P(11), d.moonIllum, d.waxing, ink, '#D3C3A4');
+  text(P(265), P(330), Math.round(d.moonIllum * 100) + '%', F.data, ink, 'l');
+}
+
+function weatherRow(cx, y, d, col, soft, bg){
+  const ic = P(26), gap = P(8), sep = P(24);
+  const t1 = d.temp + '°', t2 = d.precip + '%';
+  const w = ic + gap + textW(t1, F.data) + sep + P(14) + gap + textW(t2, F.data);
+  let x = cx - w / 2;
+  icon(d.cond, x, y - P(4), ic, col, bg); x += ic + gap;
+  x += text(x, y, t1, F.data, col, 'l') + sep;
+  icon('drop', x, y + P(2), P(14), soft); x += P(14) + gap;
+  text(x, y, t2, F.data, col, 'l');
+}
+
+// =================== 2. ORGÁNICA ===================
+function spline(pts, closed, steps){
+  const out = [], n = pts.length, last = closed ? n : n - 1;
+  for (let i = 0; i < last; i++){
+    const g = j => closed ? pts[(j + n) % n] : pts[Math.max(0, Math.min(n - 1, j))];
+    const p0 = g(i-1), p1 = g(i), p2 = g(i+1), p3 = g(i+2);
+    for (let s = 0; s < steps; s++){ const t = s / steps, t2 = t*t, t3 = t2*t;
+      out.push([0,1].map(j => P(0.5*((2*p1[j]) + (-p0[j]+p2[j])*t + (2*p0[j]-5*p1[j]+4*p2[j]-p3[j])*t2 + (-p0[j]+3*p1[j]-3*p2[j]+p3[j])*t3)))); }
+  }
+  if (!closed) out.push(pts[n-1].map(P));
+  return out;
+}
+function blob(pts, col){ poly(spline(pts, true, 6), col); }
+function curve(pts, col){ polyline(spline(pts, false, 8), col, Math.max(2, P(2))); }
+function organica(d){
+  const bg = '#5A1824';
+  rect(0, 0, S*k, S*k, bg);
+  // Formas solo en la periferia: el centro queda liso para leer.
+  blob([[-30,-30],[120,-30],[112,30],[58,92],[-30,118]], '#8C8957');            // oliva
+  blob([[-30,150],[30,140],[52,200],[34,250],[-30,262]], '#7A5569');            // malva
+  blob([[-30,282],[60,272],[180,290],[200,352],[150,430],[-30,430]], '#232C44');  // azul noche
+  blob([[350,110],[430,80],[430,270],[372,258],[344,190]], '#C0561F');          // naranja
+  blob([[214,282],[300,268],[430,290],[430,430],[200,430],[196,340]], '#E6D6BA'); // crema
+  blob([[175,372],[226,356],[262,430],[150,430]], '#B24C1D');                     // óxido
+  curve([[96,-10],[70,70],[28,150],[44,230],[20,300]], '#14080A');
+  curve([[430,262],[372,272],[330,330],[300,372],[285,430]], '#14080A');
+  const cream = '#F2E6D2', soft = '#D2B4AE';
+  text(P(195), P(52), d.date, F.label, cream);
+  text(P(195), P(80), d.time, F.time, cream);
+  weatherRow(P(195), P(184), d, cream, soft, bg);
+  const y = P(224), ic = P(22), sw = ic + P(8) + textW(d.sunrise, F.data);
+  icon('sunrise', P(195) - P(18) - sw, y - P(2), ic, soft); text(P(195) - P(18) - sw + ic + P(8), y, d.sunrise, F.data, cream, 'l');
+  icon('sunset', P(195) + P(18), y - P(2), ic, soft); text(P(195) + P(18) + ic + P(8), y, d.sunset, F.data, cream, 'l');
+  // Abajo: pasos sobre el azul noche, luna sobre la crema.
+  icon('steps', P(70), P(300), P(20), '#E9DCC4'); text(P(96), P(300), fmtSteps(d.steps), F.data, '#E9DCC4', 'l');
+  moon(P(236), P(313), P(11), d.moonIllum, d.waxing, '#2A1A14', '#CDB999');
+  text(P(254), P(300), Math.round(d.moonIllum * 100) + '%', F.data, '#2A1A14', 'l');
+}
+
+// =================== 3. TRAZOS ===================
+function rng(seed){ return () => (seed = (seed * 1103 + 12345) % 65536) / 65536; }
+// Pincelada: cuerpo casi recto, punta redondeada, base deshilachada y una veta más clara.
+function stroke(cx, yb, h, w, col, streak, r){
+  const n = 6, lean = (r() - 0.5) * P(4), pts = [];
+  for (let i = 0; i <= n; i++){ const f = i / n, half = w/2 * (i === n ? 0.55 : 0.9 + 0.1*r());
+    pts.push([cx - half + lean*f, yb - h*f]); }
+  for (let i = n; i >= 0; i--){ const f = i / n, half = w/2 * (i === n ? 0.55 : 0.9 + 0.1*r());
+    pts.push([cx + half + lean*f, yb - h*f]); }
+  pts.push([cx + w*0.25, yb + P(2) + r()*P(4)], [cx - w*0.1, yb + r()*P(3)], [cx - w*0.4, yb + P(1) + r()*P(4)]);
+  poly(pts, col);
+  line(cx - w*0.15 + lean*0.2, yb - h*0.15, cx - w*0.15 + lean*0.8, yb - h*0.8, streak, Math.max(1, P(1.5)));
+}
+function trazos(d){
+  const paper = '#EEE6D6', ink = '#1C1B19', soft = '#6E675C', blue = '#2341A6';
+  rect(0, 0, S*k, S*k, paper);
+  blob([[205,300],[268,262],[340,250],[430,262],[430,430],[215,430]], '#DCCFB2');   // colina
+  // Curva del sol: solo la parte diurna, sobre el horizonte, con el sol en su posición actual.
+  const xs = P(28), xe = P(362), yh = P(262), pxd = P(1.4);
+  line(xs, yh, xe, yh, '#BDB2A0', Math.max(1, P(1.5)));
+  const X = f => xs + (xe - xs) * f, day = [];
+  d.sunCurve.forEach((e, i) => { if (e >= 0) day.push([X(i / (d.sunCurve.length - 1)), yh - e * pxd]); });
+  day.unshift([X(d.riseFrac), yh]); day.push([X(d.setFrac), yh]);
+  polyline(day, ink, Math.max(2, P(2)));
+  if (d.sunNow > 0) circle(X(d.dayPos), yh - d.sunNow * pxd, P(6), '#E07A2E');
+  text(X(d.riseFrac) - P(8), yh - P(24), d.sunrise, F.data, soft, 'r');
+  text(X(d.setFrac) + P(8), yh - P(24), d.sunset, F.data, soft, 'l');
+  // Trazos = pasos: 7 días anteriores + hoy (más claro). Altura relativa al objetivo.
+  const r = rng(11), base = P(350), maxH = P(74), goal = Math.max(d.goal, ...d.history, d.steps);
+  const vals = [...d.history, d.steps];
+  vals.forEach((v, i) => { const h = Math.max(P(10), maxH * Math.min(1, v / goal)), today = i === vals.length - 1;
+    stroke(P(104 + i * 14), base, h, P(10), today ? '#6F86D6' : blue, today ? '#9DB0E6' : '#3E5CC4', r); });
+  // Texto
+  text(P(195), P(50), d.date, F.label, ink);
+  text(P(195), P(76), d.time, F.time, ink);
+  weatherRow(P(195), P(178), d, ink, soft, paper);
+  icon('steps', P(226), P(286), P(20), ink); text(P(252), P(286), fmtSteps(d.steps), F.data, ink, 'l');
+  moon(P(236), P(331), P(10), d.moonIllum, d.waxing, ink, '#C9BEA6');
+  text(P(252), P(319), Math.round(d.moonIllum * 100) + '%', F.data, ink, 'l');
+}
+
+// =================== Siempre encendida (AMOLED) ===================
+function aod(d){
+  rect(0, 0, S*k, S*k, '#000');
+  text(P(195), P(120), d.time, F.time, '#9A9A9A');
+  text(P(195), P(240), d.date, F.label, '#6A6A6A');
+}
+
+window.render = (theme, d, size = 390) => {
+  const cv = document.getElementById('c'); cv.width = cv.height = size; k = size / S;
+  dc = cv.getContext('2d');
+  ({ campos, organica, trazos, aod })[theme](d);
+  dc.globalCompositeOperation = 'destination-in'; dc.beginPath(); dc.arc(size/2, size/2, size/2, 0, 7); dc.fill();
+  dc.globalCompositeOperation = 'source-over';
+};
+</script></body></html>

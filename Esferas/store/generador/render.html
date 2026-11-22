@@ -92,7 +92,7 @@ function cinta(d, verde){
   text(P(195), P(50), d.date, F.label, soft);
   text(P(195), P(72), d.time, F.time, ink);
   row(P(195), P(178), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)], ['battery', d.battery + '%']], ink, soft, bg);
-  const s = sunItem(d); row(P(195), P(214), [s], soft, soft, bg, 20);
+  const s = sunItem(d); row(P(195), P(210), [s], soft, soft, bg, 20);
 }
 
 // =================== BLOQUES ===================

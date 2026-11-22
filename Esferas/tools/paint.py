@@ -122,19 +122,25 @@ def ribbon(img, ctrl, colors, seed, width=46.0, twists=2.2):
     tang = np.gradient(P, axis=0)
     tang /= np.linalg.norm(tang, axis=1, keepdims=True) + 1e-9
     nrm = np.stack([-tang[:, 1], tang[:, 0]], 1)
-    phi = 2 * np.pi * twists * t + 0.4
-    taper = 0.35 + 0.65 * np.sin(np.pi * np.clip(t * 1.04, 0, 1)) ** 0.6
-    half = width * (0.20 + 0.80 * np.abs(np.cos(phi))) * taper
+    # giro lento y continuo (sin cambios bruscos de cara) + curvatura del trazo
+    phi = 2 * np.pi * twists * t + 0.4 + 0.6 * np.sin(2 * np.pi * 0.7 * t)
+    taper = 0.30 + 0.70 * np.sin(np.pi * np.clip(t * 1.02, 0, 1)) ** 0.5
+    half = width * (0.12 + 0.88 * np.abs(np.cos(phi)) ** 0.8) * taper     # cinta plana que se pliega
     nk = 520
     k = np.linspace(-1, 1, nk, dtype=np.float32)
     # textura de cerdas: tono por cerda (constante a lo largo) + surcos + carga de pintura
-    bristle = 0.84 + 0.26 * rng.random(nk)
-    bristle[rng.random(nk) > 0.88] *= 0.62
+    bristle = 0.80 + 0.34 * rng.random(nk)
+    bristle[rng.random(nk) > 0.84] *= 0.55
     bristle = np.convolve(bristle, [0.25, 0.5, 0.25], mode="same")
     load = 0.94 + 0.12 * np.interp(t, np.linspace(0, 1, 60), rng.random(60))
-    shade = 0.5 + 0.5 * np.sin(phi[:, None] + 1.7 * k[None, :])
-    back = (np.cos(phi) < 0)[:, None]
-    shade = np.where(back, shade * 0.42, np.clip(shade * 1.05, 0, 1))
+    # luz continua: la superficie es un cilindro que rota; la cara trasera se oscurece
+    # de forma gradual (no por salto) según el coseno del giro.
+    # cinta plana: la luz depende sobre todo de hacia dónde mira la cara (giro), con un leve
+    # abombado a lo ancho y oscurecimiento junto a los pliegues
+    face = np.cos(phi)[:, None]
+    shade = 0.5 + 0.38 * np.sin(phi[:, None] + 0.55 * k[None, :]) + 0.12 * face
+    shade = shade * (0.55 + 0.45 * np.abs(face) ** 0.5)
+    shade = np.clip(shade, 0, 1)
     dark, mid, light = (hexrgb(c) for c in colors)
     lo = dark + (mid - dark) * np.clip(shade * 2, 0, 1)[..., None]
     hi = mid + (light - mid) * np.clip(shade * 2 - 1, 0, 1)[..., None]
@@ -147,8 +153,10 @@ def ribbon(img, ctrl, colors, seed, width=46.0, twists=2.2):
     inside = ((X > -5) & (X < 395) & (Y > -5) & (Y < 395)).ravel()
     buf = np.zeros((N, N, 3), np.float32)
     alpha = np.zeros((N, N), np.float32)
-    buf[iy[inside], ix[inside]] = np.clip(col.reshape(-1, 3)[inside], 0, 1)   # el último tramo gana
-    alpha[iy[inside], ix[inside]] = 1.0
+    tail = np.minimum(t / 0.08, (1 - t) / 0.10)                         # 0 en las puntas
+    keep = (rng.random((len(t), nk)) < np.clip(tail, 0, 1)[:, None] ** 0.7 + 0.05).ravel() & inside
+    buf[iy[keep], ix[keep]] = np.clip(col.reshape(-1, 3)[keep], 0, 1)   # el último tramo gana
+    alpha[iy[keep], ix[keep]] = 1.0
     rgba = Image.fromarray((np.dstack([buf, alpha]) * 255).astype(np.uint8), "RGBA")
     arr = np.asarray(rgba.filter(ImageFilter.GaussianBlur(0.35 * K)), np.float32) / 255.0
     # sombra suave proyectada sobre el lino
@@ -182,9 +190,11 @@ def splatter(img, color, seed, region, count=70):
 
 def bg_cinta(ground, colors, ink, seed):
     img = mottle(linen(solid(ground), 0.09, seed), 0.05, seed + 1)
-    ctrl = [(-50, 360), (30, 268), (118, 300), (168, 356), (238, 340), (282, 268), (340, 238), (440, 268)]
-    img = ribbon(img, ctrl, colors, seed + 2, width=44.0, twists=2.6)
-    img = splatter(img, ink, seed + 3, (20, 205, 370, 380))
+    # gesto caligráfico: entra por la izquierda, hace dos bucles que se pisan y sale por arriba a la derecha
+    ctrl = [(x, y + 30) for x, y in [(-60, 318), (30, 250), (132, 238), (204, 290), (192, 362), (118, 352),
+            (128, 290), (222, 248), (312, 276), (352, 334), (300, 374), (268, 318), (330, 248), (450, 236)]]
+    img = ribbon(img, ctrl, colors, seed + 2, width=46.0, twists=1.75)
+    img = splatter(img, ink, seed + 3, (20, 245, 370, 385))
     return to_image(vignette(img, 0.10))
 
 

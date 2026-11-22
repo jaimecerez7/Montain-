@@ -86,7 +86,7 @@ class Themes {
         Draw.text(dc, Draw.p(195), Draw.p(72), d.time, fTime, ink, c);
         row(dc, Draw.p(195), Draw.p(178), [[d.cond, d.temp], [:steps, d.stepsText()], [:battery, pct(d.battery)]],
             ink, soft, ground, 24);
-        row(dc, Draw.p(195), Draw.p(214), [sunItem(d)], soft, soft, ground, 20);
+        row(dc, Draw.p(195), Draw.p(210), [sunItem(d)], soft, soft, ground, 20);
     }
 
     // ------------------------------------------------------------ BLOQUES

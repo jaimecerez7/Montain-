@@ -28,11 +28,12 @@ window.loadArt = () => Promise.all([
 ].map(([n, src]) => new Promise(ok => { const im = new Image(); im.onload = () => { IMG[n] = im; ok(); }; im.src = src; })));
 // Hora con cifras pintadas: cada cifra trae PAD px de margen a cada lado.
 const PAD = 6;
-function glyphTime(cx, top, t, style, track){
+const BOUNCE = [-3, 4, 0, -4, 3];   // collage: las cifras saltan sobre la línea
+function glyphTime(cx, top, t, style, track, bounce = false){
   const gs = [...t].map(ch => IMG['g' + style + (ch === ':' ? 10 : +ch)]), pad = P(PAD);
   let w = -P(track); for (const g of gs) w += g.width - 2 * pad + P(track);
   let x = cx - w / 2 - pad;
-  for (const g of gs) { dc.drawImage(g, x, top - pad); x += g.width - 2 * pad + P(track); }
+  gs.forEach((g, i) => { dc.drawImage(g, x, top - pad + (bounce ? P(BOUNCE[(i + 5 - gs.length) % 5]) : 0)); x += g.width - 2 * pad + P(track); });
 }
 
 function font(f){ return `${f.weight} ${P(f.size)}px Jost`; }
@@ -150,20 +151,19 @@ function reticula(d){
 // =================== COLLAGE ===================
 function collage(d){
   art(['collage', 'collage2', 'collage3'][d.variant || 0]);                             // un collage distinto cada día
-  const ink = '#1E1B18', soft = '#5E554A';
+  const ink = '#24211E', soft = '#6E6457';
   text(P(195), P(64), d.date, F.label, ink);                                           // cinta adhesiva: fecha
-  glyphTime(P(195), P(104), d.time, 'co', -2);                                         // papeles recortados: hora
-  row(P(104), P(258), [[d.cond, d.temp + '°']], ink, soft, '#EFE6D3', 18, F.small);       // círculo hueso: tiempo
-  row(P(104), P(284), [['drop', d.precip + '%']], soft, soft, '#EFE6D3', 14, F.small);
-  const mp = IMG['moon' + d.moonIdx];                                                  // círculo marino: luna
+  glyphTime(P(195), P(104), d.time, 'co', -2, true);                                   // papeles recortados que saltan
+  row(P(104), P(258), [[d.cond, d.temp + '°']], ink, soft, '#F5EFE3', 18, F.small);       // círculo crema: tiempo
+  row(P(104), P(284), [['drop', d.precip + '%']], soft, soft, '#F5EFE3', 14, F.small);
+  const mp = IMG['moon' + d.moonIdx];                                                  // círculo azul noche: luna
   dc.drawImage(mp, P(286) - mp.width / 2, P(264) - mp.height / 2);
-  text(P(286), P(284), Math.round(d.moonIllum * 100) + '%', F.mini, '#E4DCCB');
-  row(P(195), P(256), [['steps', fmtSteps(d.steps)]], ink, soft, '#EDE3CF', 14, F.small);   // tira: pasos y batería
-  // barra fina de progreso hacia el objetivo de pasos
+  text(P(286), P(284), Math.round(d.moonIllum * 100) + '%', F.mini, '#E9E2D2');
+  row(P(195), P(256), [['steps', fmtSteps(d.steps)]], ink, soft, '#F2E7CF', 14, F.small);   // tira: pasos y batería
   const bx = P(162), bw = P(66), by = P(276), f = Math.min(1, d.steps / d.goal);
-  rect(bx, by, bw, Math.max(1, P(2)), '#CFC2A8'); rect(bx, by, bw * f, Math.max(1, P(2)), '#C4501E');
-  row(P(195), P(282), [['battery', d.battery + '%']], soft, soft, '#EDE3CF', 14, F.small);
-  row(P(195), P(326), [['sunrise', d.sunrise], ['sunset', d.sunset]], ink, '#3A322A', '#D8C7A0', 14, F.small);  // cinta: sol
+  rect(bx, by, bw, Math.max(1, P(2)), '#D9CCB2'); rect(bx, by, bw * f, Math.max(1, P(2)), '#D7372A');
+  row(P(195), P(282), [['battery', d.battery + '%']], soft, soft, '#F2E7CF', 14, F.small);
+  row(P(195), P(326), [['sunrise', d.sunrise], ['sunset', d.sunset]], ink, soft, '#EBDDBA', 14, F.small);  // cinta: sol
 }
 
 // =================== CIELO PINTADO ===================

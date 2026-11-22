@@ -130,8 +130,8 @@ def stamped(ch, seed):
     return rgba(np.broadcast_to(rgb, (h, w, 3)), m)
 
 
-PAPERS = ["#C4501E", "#1F3D2B", "#1C2B45", "#D69A2D", "#9E3B2C", "#2F6B6A", "#6B7A3A", "#141312",
-          "#B5461C", "#5F7F92", "#141312"]   # óxido, bosque, marino, mostaza, ladrillo, petróleo, oliva, negro…
+PAPERS = ["#D7372A", "#1E8A4B", "#3E7CC8", "#D8A126", "#E98FA0", "#2A7E78", "#E1631E", "#151413",
+          "#8C2B2B", "#5A8FD0", "#151413"]
 
 
 def cutout(ch, seed):
@@ -148,11 +148,17 @@ def cutout(ch, seed):
     shadow = np.pad(shadow, ((dy, 0), (dx, 0)))[:h, :w]
     color = hexrgb(PAPERS[CHARS.index(ch)])
     paper = noise(h, w, h // 3, w // 3, seed + 1)
-    rgb = np.broadcast_to(hexrgb("#F2EBDD"), (h, w, 3)).copy()
+    rgb = np.broadcast_to(hexrgb("#FAF7F0"), (h, w, 3)).copy()
     rgb = rgb * (1 - fill[..., None]) + (color * (0.92 + 0.12 * paper)[..., None]) * fill[..., None]
     a = np.maximum(border, shadow * 0.45)
     rgb = rgb * (border[..., None]) + np.zeros(3) * (1 - border[..., None])   # la sombra es negra
     return rgba(rgb, a)
+
+
+def tilt(arr, deg):
+    """Giro leve (pegado a mano) sin cambiar el tamaño de la pieza."""
+    im = Image.fromarray((np.clip(arr, 0, 1) * 255).astype(np.uint8), "RGBA")
+    return np.asarray(im.rotate(deg, resample=Image.BICUBIC), np.float32) / 255.0
 
 
 STYLES = {
@@ -160,7 +166,7 @@ STYLES = {
     "Ca": lambda ch, i: painted(ch, 800 + i, "#7A2E06", "#D4701A", "#FFD36B"),
     "Bl": lambda ch, i: cream_paint(ch, 900 + i),
     "Re": lambda ch, i: stamped(ch, 1000 + i),
-    "Co": lambda ch, i: cutout(ch, 1100 + i),
+    "Co": lambda ch, i: tilt(cutout(ch, 1100 + i), [-4, 3, -2.5, 4.5, -3, 2.5, -4.5, 3.5, -1.5, 3, 0][i]),
 }
 
 

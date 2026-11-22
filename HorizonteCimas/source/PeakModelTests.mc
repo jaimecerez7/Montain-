@@ -113,3 +113,109 @@ function distanceFormat(logger as Test.Logger) as Boolean {
     Test.assert(view.fmtDist(19500).equals("20 km"));
     return true;
 }
+
+// ---------------------------------------------------------------------------
+// Pruebas offline: no usan red ni GPS real. Se ejecutan en el simulador con
+//   monkeydo HorizonteCimas-tests.prg fr165 -t
+// (con la conexión del simulador desactivada deben pasar igual).
+
+function findPeak(model as PeakModel, name as String) {
+    for (var i = 0; i < model.geom.size(); i++) {
+        var n = model.geom[i][4];
+        if (n.find(name) != null) { return model.geom[i]; }
+    }
+    return null;
+}
+
+(:test)
+function offlineCoverage(logger as Test.Logger) as Boolean {
+    var model = new PeakModel();
+    Test.assert(model.inCoverage(40.7417, -4.0567));     // Cercedilla
+    Test.assert(model.inCoverage(40.9481, -4.1184));     // Segovia (acueducto)
+    Test.assert(model.inCoverage(41.3, -3.4));           // Sierra de Ayllón
+    Test.assert(!model.inCoverage(40.4168, -3.7038));    // Madrid centro (fuera)
+    Test.assert(!model.inCoverage(43.263, -2.935));      // Bilbao
+    Test.assert(!model.inCoverage(null, null));
+    logger.debug("Base offline: " + PeakTiles.COUNT + " cimas, versión " + PeakTiles.VERSION);
+    Test.assert(PeakTiles.COUNT > 50);
+    return true;
+}
+
+(:test)
+function offlineLoadCercedilla(logger as Test.Logger) as Boolean {
+    var model = new PeakModel();
+    model.lat = 40.7417;
+    model.lon = -4.0567;
+    model.altitudeOk = true;
+    model.alt = 1200.0;
+    Test.assert(model.loadOffline());
+    logger.debug("Cercedilla: " + model.peaks.size() + " cimas, " + model.offlineTiles + " teselas, "
+        + model.offlineCandidates + " candidatas, " + model.offlineLoadMs + " ms");
+    Test.assert(model.dataSource == 1);
+    Test.assert(model.localData);
+    Test.assert(model.peaks.size() >= 20 && model.peaks.size() <= 100);
+    Test.assert(model.geom.size() > 0);
+    // Peñalara (2428 m) está a ~15 km al NNE de Cercedilla.
+    var pen = findPeak(model, "Peñalara");
+    Test.assert(pen != null);
+    if (pen != null) {
+        logger.debug("Peñalara: " + pen[2].toNumber() + " m, rumbo " + pen[0].toNumber() + "°");
+        Test.assert(pen[2] > 12000 && pen[2] < 18000);
+        Test.assert(pen[0] > 20 && pen[0] < 50);
+        Test.assert(pen[3] > 2400 && pen[3] < 2450);
+        Test.assert(pen[1] > 2);   // casi 1200 m más alta: varios grados sobre el horizonte
+    }
+    return true;
+}
+
+(:test)
+function offlineStartsWithoutNetwork(logger as Test.Logger) as Boolean {
+    // Simula el arranque: primera posición (aunque sea la última conocida) dentro de la zona.
+    var model = new PeakModel();
+    model.peaks = [];
+    model.dataLat = null;
+    model.dataLon = null;
+    model.dataSource = 0;
+    model.applyPosition(40.9481, -4.1184, null, false);   // Segovia, sin altitud ni fijo GPS
+    Test.assert(model.localData);
+    Test.assert(model.dataSource == 1);
+    Test.assert(!model.fetching);                           // no se ha pedido nada a Internet
+    Test.assert(model.geom.size() > 0);
+    // Moverse 2 km no recarga; moverse 10 km sí.
+    var loads = model.offlineLoads;
+    model.applyPosition(40.9661, -4.1184, 1000.0, true);
+    Test.assert(model.offlineLoads == loads);
+    model.applyPosition(41.0381, -4.1184, 1000.0, true);
+    Test.assert(model.offlineLoads == loads + 1);
+    return true;
+}
+
+(:test)
+function offlineOutsideZone(logger as Test.Logger) as Boolean {
+    var model = new PeakModel();
+    model.peaks = [];
+    model.dataSource = 0;
+    model.lat = 43.263;
+    model.lon = -2.935;
+    Test.assert(!model.loadOffline());
+    Test.assert(model.peaks.size() == 0);
+    Test.assert(model.dataSource == 0);
+    return true;
+}
+
+(:test)
+function offlineSelectionOrder(logger as Test.Logger) as Boolean {
+    var model = new PeakModel();
+    var near = [] as Array<Array>;
+    for (var i = 0; i < 120; i++) {
+        near.add([9900.0 - i * 80, ["c" + i, 40.8 + i * 0.0005, -4.0, 1500.0]]);
+    }
+    var far = [[2.0, ["lejana alta", 41.1, -4.0, 2400.0]], [-1.0, ["lejana baja", 41.1, -3.9, 1200.0]]];
+    var list = model.choosePeaks(near, far, 40.8, -4.0);
+    Test.assert(list.size() == 100);
+    var names = "";
+    for (var i = 0; i < list.size(); i++) { names += list[i][0] + ","; }
+    Test.assert(names.find("lejana alta") != null);   // una lejana relevante entra antes que cercanas sobrantes
+    Test.assert(names.find("c119,") != null);          // la más cercana siempre entra
+    return true;
+}

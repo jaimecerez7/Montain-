@@ -1,4 +1,50 @@
-# Horizonte Cimas 0.4 revisada — Garmin Connect IQ (Monkey C)
+# Horizonte Cimas 0.5 — Garmin Connect IQ (Monkey C)
+
+## Base offline: Segovia y Sierra de Guadarrama (0.5)
+
+La app incluye **las cumbres reales de OpenStreetMap** de la provincia de Segovia y la Sierra de Guadarrama, incluidas las vertientes de Madrid y Ávila (40,55–41,62° N, 4,75–3,15° O). Cada cumbre tiene nombre, latitud, longitud y elevación; las que no tienen elevación en OSM no se incluyen.
+
+- **Al abrir la app**, la primera posición (aunque sea la última conocida) basta para mostrar las cimas. **No hace falta Internet ni móvil.**
+- **Empaquetado:** recursos JSON de Connect IQ (`resources/peaks/`) en teselas de 0,5° × 0,5°, con un formato plano (`{"n": [nombres], "p": [lat·1e5, lon·1e5, ele, …]}`) que crea pocos objetos en memoria.
+- **Carga (optimizada para el FR165):**
+  - Solo se leen las teselas que tocan el círculo de 40 km, y se liberan una a una.
+  - El primer filtro de distancia es equirrectangular, más barato.
+  - La selección usa cubetas en lugar de ordenar cientos de cimas.
+  - Se guardan como máximo 100 cimas, con el mismo criterio que la descarga online.
+- **Recarga** solo al alejarse 5 km del punto de la última carga.
+- **Descarga online, ahora opcional:** dentro de la zona offline no se hace sola. Se lanza con **START** o en **Menú → Actualizar online**, y sustituye a la base offline hasta que te alejes 5 km. Fuera de la zona, la app funciona como antes, con descarga automática y caché.
+- **Actualizar los datos:** workflow *Actualizar cumbres offline* (`.github/workflows/datos-cimas.yml`) o `python3 -I tools/fetch_peaks.py`. Regenera los JSON, `source/PeakTiles.mc` y `tools/data/peaks_summary.json`.
+
+### Diagnóstico
+
+**Menú (mantener ARRIBA) → Diagnóstico** muestra:
+- la fuente de los datos (offline, caché o Internet) y la versión de la base;
+- si estás en la zona offline;
+- las cimas en memoria y visibles;
+- la última carga: teselas, candidatas y milisegundos;
+- el estado del GPS y la altitud, el modo del rumbo y el estado de la red (incluido el último código de la descarga online);
+- la memoria usada.
+
+El pie de la pantalla principal indica «Offline · © OSM» cuando las cimas vienen de la base precargada.
+
+### Pruebas de simulador offline
+
+**Automáticas**, en `source/PeakModelTests.mc`. Se ejecutan con `monkeydo HorizonteCimas-tests.prg fr165 -t` y el workflow las intenta en un simulador sin pantalla:
+
+| Prueba | Comprueba |
+|---|---|
+| `offlineCoverage` | Qué puntos están dentro o fuera de la zona (Cercedilla, Segovia, Ayllón, Madrid, Bilbao) |
+| `offlineLoadCercedilla` | Carga desde Cercedilla: Peñalara a 12–18 km, con rumbo de 20–50°, ~2428 m y varios grados sobre el horizonte |
+| `offlineStartsWithoutNetwork` | Arranque con la última posición conocida: hay cimas sin pedir nada a la red; con 2 km no recarga, con 10 km sí |
+| `offlineOutsideZone` | Fuera de la zona no se carga nada |
+| `offlineSelectionOrder` | La selección de 100 cimas mantiene las cercanas y las lejanas relevantes |
+
+**Manuales**, en el simulador:
+1. En *Simulation → Connection*, desactiva la conexión del teléfono para trabajar sin red.
+2. En *Simulation → Set Position*, prueba 40.7417, -4.0567 (Cercedilla) o 40.9481, -4.1184 (Segovia). Las cimas deben aparecer al momento, con el pie «Offline · © OSM».
+3. Para probar en movimiento, carga `tools/sim/cercedilla-penalara-segovia.gpx` en *Simulation → Activity Data / FIT-GPX playback*. Recorre Cercedilla, Navacerrada, Peñalara y Segovia. En **Diagnóstico** debe subir el número de cargas cada ~5 km y la red debe seguir en «no usada».
+4. Con la conexión activada, **START** descarga de Internet. Al volver a desactivarla, sale el aviso «Sin móvil · offline» y las cimas se mantienen.
+
 
 La revisión cambia la presentación del panorama: rumbo y modo en líneas separadas, silueta por capas, etiquetas adaptadas al ancho circular y una ficha inferior con la cima seleccionada. Las distancias inferiores a 1 km se muestran en metros. Con brújula activa y sin lectura, el indicador de rumbo muestra «—».
 

@@ -100,6 +100,37 @@ class ProjectTests(unittest.TestCase):
         for name in ["overpassScaling", "retryPolicy", "occlusionHint"]:
             self.assertIn("function " + name, tests)
 
+    def test_offline_peaks_data(self):
+        import json
+        summary = json.loads((ROOT / "tools/data/peaks_summary.json").read_text())
+        self.assertGreater(summary["count"], 50)
+        xml = ET.parse(ROOT / "resources/peaks/peaks.xml").getroot()
+        ids = [e.get("id") for e in xml.findall("jsonData")]
+        self.assertTrue(ids)
+        total, names = 0, []
+        for e in xml.findall("jsonData"):
+            doc = json.loads((ROOT / "resources/peaks" / e.get("filename")).read_text())
+            self.assertEqual(len(doc["p"]), 3 * len(doc["n"]))
+            r, c = map(int, re.match(r"PeaksR(\d+)C(\d+)", e.get("id")).groups())
+            for i in range(len(doc["n"])):
+                lat, lon, ele = doc["p"][3 * i] / 1e5, doc["p"][3 * i + 1] / 1e5, doc["p"][3 * i + 2]
+                self.assertTrue(40.5 + r * 0.5 <= lat < 40.5 + (r + 1) * 0.5)
+                self.assertTrue(-4.75 + c * 0.5 <= lon < -4.75 + (c + 1) * 0.5)
+                self.assertTrue(-100 <= ele <= 5000)
+            total += len(doc["n"])
+            names += doc["n"]
+        self.assertEqual(total, summary["count"])
+        self.assertIn("Peñalara", names)
+        mc = (ROOT / "source/PeakTiles.mc").read_text()
+        for i in ids:
+            self.assertIn("Rez.JsonData." + i, mc)
+
+    def test_offline_tests_present(self):
+        tests = (ROOT / "source/PeakModelTests.mc").read_text()
+        for name in ["offlineCoverage", "offlineLoadCercedilla", "offlineStartsWithoutNetwork",
+                     "offlineOutsideZone", "offlineSelectionOrder"]:
+            self.assertIn("function " + name, tests)
+
     def test_no_duplicate_product_ids(self):
         tree = ET.parse(ROOT / "manifest.xml")
         ids = [e.get("id") for e in tree.findall(".//iq:product", NS)]

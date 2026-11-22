@@ -127,7 +127,7 @@ class HorizonteCimasView extends WatchUi.View {
             drawPeaks(dc, w, h, cx, hd, ppd, fh, [horizonY, crestY, infoY, firstLabelY, rowCount]);
         }
 
-        var foot = "© OpenStreetMap";
+        var foot = model.dataSource == 1 ? "Offline · © OSM" : "© OpenStreetMap";
         if (model.localData && model.fetching) {
             foot = "Actualizando cimas…";
         } else if (model.localData && model.status != null) {
@@ -144,6 +144,8 @@ class HorizonteCimasView extends WatchUi.View {
         var footWidth = usableWidth(w, h, footY, fh);
         if (foot.equals("© OpenStreetMap") && dc.getTextWidthInPixels(foot, Graphics.FONT_XTINY) > footWidth) {
             foot = "© OSM";
+        } else if (foot.equals("Offline · © OSM") && dc.getTextWidthInPixels(foot, Graphics.FONT_XTINY) > footWidth) {
+            foot = "Offline";
         }
         dc.setColor(MUTED, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, footY, Graphics.FONT_XTINY, fitText(dc, foot, Graphics.FONT_XTINY, footWidth),

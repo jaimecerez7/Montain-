@@ -27,6 +27,13 @@ class PeakModel {
     const SEARCHING_GPS = "Buscando señal GPS…";
     const WAIT_FIX = "Esperando GPS preciso…";
     const OUT_OF_ZONE = "Cimas fuera de zona";
+    // Origen de las cimas en memoria
+    const SRC_NONE = 0;
+    const SRC_OFFLINE = 1;   // base precargada (Segovia y Guadarrama)
+    const SRC_CACHE = 2;     // última descarga guardada
+    const SRC_ONLINE = 3;    // descarga de esta sesión
+    const M_PER_DEG_LAT = 110540.0;
+    const M_PER_DEG_LON = 111320.0;
 
     // Instancias públicas de Overpass con datos mundiales. Se prueba la siguiente
     // si una falla (HTTP 406/429/5xx, tiempo agotado, respuesta inválida).
@@ -61,6 +68,13 @@ class PeakModel {
     var useCompass = true;
     var manualHeading = 0.0;
     var lastHeading = 0.0;
+    // Diagnóstico de la base offline
+    var dataSource = SRC_NONE;
+    var offlineTiles = 0;        // teselas leídas en la última carga
+    var offlineCandidates = 0;   // cimas dentro de 40 km en la última carga
+    var offlineLoadMs = 0;       // duración de la última carga
+    var offlineLoads = 0;        // cargas desde el inicio
+    var lastOnlineCode = null;   // último código HTTP o de error de la descarga online
 
     function initialize() {
         try {
@@ -75,6 +89,7 @@ class PeakModel {
                     Application.Storage.getValue("dlat"), Application.Storage.getValue("dlon"));
                 if (peaks.size() > 0) { saveCache(); }
             }
+            if (peaks.size() > 0) { dataSource = SRC_CACHE; }
             var ep = Application.Storage.getValue("overpassEndpoint");
             if (ep instanceof Number && ep >= 0 && ep < endpoints.size()) { endpointIndex = ep; }
         } catch (ex) {
@@ -117,11 +132,25 @@ class PeakModel {
 
         var coords = info.position.toDegrees();
         if (coords[0] == 0 && coords[1] == 0) { return; }   // posición vacía del sistema
-        lat = coords[0];
-        lon = coords[1];
+        applyPosition(coords[0], coords[1], precise && info.altitude != null ? info.altitude : null, precise);
+    }
+
+    // Separado de onPosition para poder probarlo sin GPS (pruebas de simulador offline).
+    function applyPosition(la, lo, altitude, precise as Boolean) as Void {
+        lat = la;
+        lon = lo;
         fixOk = precise;
-        altitudeOk = precise && info.altitude != null;
-        alt = altitudeOk ? info.altitude : 0.0;
+        altitudeOk = altitude != null;
+        alt = altitudeOk ? altitude : 0.0;
+
+        // Base offline: dentro de la zona cubierta, las cimas salen al instante, sin Internet.
+        // Solo se recarga al cambiar de zona (5 km); una descarga online reciente se respeta.
+        if (inCoverage(lat, lon)) {
+            var nearData = dataLat != null && GeoMath.distance(lat, lon, dataLat, dataLon) <= REFETCH_M;
+            if (!nearData || dataSource == SRC_CACHE || dataSource == SRC_NONE) {
+                if (!(nearData && dataSource == SRC_ONLINE)) { loadOffline(); }
+            }
+        }
 
         var wasLocal = localData;
         refreshLocalData();
@@ -140,6 +169,7 @@ class PeakModel {
             status = null;   // avisos que ya no aplican al volver a la zona con datos
         }
         if (localData || fetching) { return; }
+        if (inCoverage(lat, lon)) { return; }   // la descarga online es opcional en la zona offline
         if (!fixOk) {
             status = WAIT_FIX;
             return;
@@ -151,6 +181,114 @@ class PeakModel {
         } else if (wasLocal) {
             status = OUT_OF_ZONE;
         }
+    }
+
+    // ¿Está el punto dentro de la base offline? (margen de unos 5 km)
+    function inCoverage(la, lo) as Boolean {
+        return la != null && lo != null && la >= PeakTiles.SOUTH - 0.05 && la <= PeakTiles.NORTH + 0.05
+            && lo >= PeakTiles.WEST - 0.06 && lo <= PeakTiles.EAST + 0.06;
+    }
+
+    // Carga las cimas precargadas en 40 km alrededor de la posición actual.
+    // Solo se leen las teselas que tocan el círculo; la distancia de filtrado es
+    // equirrectangular (barata) y la selección no ordena todo el conjunto.
+    function loadOffline() as Boolean {
+        if (lat == null || !inCoverage(lat, lon)) { return false; }
+        var t0 = System.getTimer();
+        var reach = FAR_RADIUS_M + 500.0;
+        var kx = M_PER_DEG_LON * Math.cos(Math.toRadians(lat));
+        var rLat = reach / M_PER_DEG_LAT;
+        var rLon = reach / kx;
+        var r0 = Math.floor((lat - rLat - PeakTiles.LAT0) / PeakTiles.STEP).toNumber();
+        var r1 = Math.floor((lat + rLat - PeakTiles.LAT0) / PeakTiles.STEP).toNumber();
+        var c0 = Math.floor((lon - rLon - PeakTiles.LON0) / PeakTiles.STEP).toNumber();
+        var c1 = Math.floor((lon + rLon - PeakTiles.LON0) / PeakTiles.STEP).toNumber();
+        var near = [] as Array<Array>;
+        var far = [] as Array<Array>;
+        var tiles = 0;
+        for (var r = r0; r <= r1; r++) {
+            for (var c = c0; c <= c1; c++) {
+                var id = PeakTiles.tile(r, c);
+                if (id == null) { continue; }
+                var data = null;
+                try { data = WatchUi.loadResource(id); } catch (ex) { data = null; }
+                if (!(data instanceof Dictionary)) { continue; }
+                tiles++;
+                var names = data["n"];
+                var p = data["p"];
+                if (!(names instanceof Array) || !(p instanceof Array) || p.size() < names.size() * 3) { continue; }
+                for (var i = 0; i < names.size(); i++) {
+                    var pla = p[3 * i] / 100000.0d;
+                    var plo = p[3 * i + 1] / 100000.0d;
+                    var dy = (pla - lat) * M_PER_DEG_LAT;
+                    var dx = (plo - lon) * kx;
+                    var d = Math.sqrt(dx * dx + dy * dy);
+                    if (d < 60 || d > reach) { continue; }
+                    var peak = [names[i], pla, plo, p[3 * i + 2].toFloat()];
+                    if (d <= NEAR_RADIUS_M) {
+                        near.add([d, peak]);
+                    } else {
+                        far.add([GeoMath.elevationAngle(peak[3] - alt, d), peak]);
+                    }
+                }
+                data = null;   // liberar la tesela antes de leer la siguiente
+            }
+        }
+        offlineTiles = tiles;
+        offlineCandidates = near.size() + far.size();
+        offlineLoads++;
+        peaks = choosePeaks(near, far, lat, lon);
+        dataLat = lat;
+        dataLon = lon;
+        dataSource = SRC_OFFLINE;
+        status = null;
+        refreshLocalData();
+        updateGeometry();
+        offlineLoadMs = System.getTimer() - t0;
+        return true;
+    }
+
+    // Selección común (offline y online): las 50 más cercanas, después las lejanas de mayor
+    // ángulo aparente, y el resto de cercanas si sobra sitio. Ordenadas por rumbo al final.
+    // Se usa clasificación por cubetas (lineal) para no ordenar cientos de candidatas.
+    function choosePeaks(near as Array<Array>, far as Array<Array>, refLat, refLon) as Array<Array> {
+        var nearS = bucketOrder(near, 0.0, NEAR_RADIUS_M.toFloat(), 40, true);
+        var farS = bucketOrder(far, -3.0, 15.0, 90, false);
+        var chosen = [] as Array<Array>;
+        for (var i = 0; i < nearS.size() && i < KEEP_NEAR; i++) { chosen.add(nearS[i][1]); }
+        var farBudget = MAX_PEAKS - chosen.size();
+        for (var i = 0; i < farS.size() && i < farBudget; i++) { chosen.add(farS[i][1]); }
+        for (var i = KEEP_NEAR; i < nearS.size() && chosen.size() < MAX_PEAKS; i++) { chosen.add(nearS[i][1]); }
+        var byBearing = [] as Array<Array>;
+        for (var i = 0; i < chosen.size(); i++) {
+            var p = chosen[i];
+            byBearing.add([GeoMath.bearing(refLat, refLon, p[1], p[2]), p]);
+        }
+        sortCandidates(byBearing, true);   // ≤ 100 elementos
+        var list = [] as Array<Array>;
+        for (var i = 0; i < byBearing.size(); i++) { list.add(byBearing[i][1]); }
+        return list;
+    }
+
+    // Ordenación aproximada por cubetas de la primera columna (orden exacto entre cubetas).
+    function bucketOrder(items as Array<Array>, lo, hi, nb as Number, ascending as Boolean) as Array<Array> {
+        if (items.size() <= 1) { return items; }
+        var buckets = new [nb];
+        for (var i = 0; i < nb; i++) { buckets[i] = []; }
+        var span = hi - lo;
+        for (var i = 0; i < items.size(); i++) {
+            var b = ((items[i][0] - lo) / span * nb).toNumber();
+            if (b < 0) { b = 0; }
+            if (b >= nb) { b = nb - 1; }
+            buckets[b].add(items[i]);
+        }
+        var out = [] as Array<Array>;
+        for (var k = 0; k < nb; k++) {
+            var bk = buckets[ascending ? k : nb - 1 - k];
+            sortCandidates(bk, ascending);   // cubetas pequeñas
+            out.addAll(bk);
+        }
+        return out;
     }
 
     function refreshLocalData() as Void {
@@ -181,7 +319,7 @@ class PeakModel {
         if (lat == null || fetching) { return; }
         lastAttempt = System.getTimer();
         if (!connectionAvailable()) {
-            status = localData ? "Sin móvil · caché" : "Conecta el móvil";
+            status = localData ? (dataSource == SRC_OFFLINE ? "Sin móvil · offline" : "Sin móvil · caché") : "Conecta el móvil";
             WatchUi.requestUpdate();
             return;
         }
@@ -264,6 +402,7 @@ class PeakModel {
     }
 
     function onResponse(code as Number, data as Dictionary or String or Null) as Void {
+        lastOnlineCode = code;
         if (lat != null && GeoMath.distance(lat, lon, requestLat, requestLon) > REFETCH_M) {
             fetching = false;
             status = localData ? null : OUT_OF_ZONE;
@@ -289,7 +428,7 @@ class PeakModel {
             }
             fetching = false;
             var msg = errorMessage(code);
-            status = localData ? msg + " · caché" : msg;
+            status = localData ? msg + (dataSource == SRC_OFFLINE ? " · offline" : " · caché") : msg;
             WatchUi.requestUpdate();
             return;
         }
@@ -332,33 +471,9 @@ class PeakModel {
             return;
         }
 
-        sortCandidates(near, true);    // cerca: primeras las más próximas
-        sortCandidates(far, false);   // lejos: primeras las de mayor ángulo
-        var chosen = [] as Array<Array>;
-        for (var i = 0; i < near.size() && i < KEEP_NEAR; i++) {
-            chosen.add(near[i][1]);
-        }
-        // Incluir también cimas cercanas restantes, sin tapar las lejanas.
-        var farBudget = MAX_PEAKS - chosen.size();
-        for (var i = 0; i < far.size() && i < farBudget; i++) {
-            chosen.add(far[i][1]);
-        }
-        for (var i = KEEP_NEAR; i < near.size() && chosen.size() < MAX_PEAKS; i++) {
-            chosen.add(near[i][1]);
-        }
-
-        // Guardar ordenadas por rumbo: al moverse el orden apenas cambia y la
-        // ordenación de la geometría es casi lineal.
-        var byBearing = [] as Array<Array>;
-        for (var i = 0; i < chosen.size(); i++) {
-            var p = chosen[i];
-            byBearing.add([GeoMath.bearing(requestLat, requestLon, p[1], p[2]), p]);
-        }
-        sortCandidates(byBearing, true);
-        var list = [] as Array<Array>;
-        for (var i = 0; i < byBearing.size(); i++) { list.add(byBearing[i][1]); }
-
-        peaks = list;
+        // Guardar ordenadas por rumbo: al moverse el orden apenas cambia.
+        peaks = choosePeaks(near, far, requestLat, requestLon);
+        dataSource = SRC_ONLINE;
         dataLat = requestLat;
         dataLon = requestLon;
         refreshLocalData();

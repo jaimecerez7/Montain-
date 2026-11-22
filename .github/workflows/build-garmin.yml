@@ -79,7 +79,8 @@ jobs:
           fi
           connect-iq-sdk-manager sdk set '^9.0.0' || connect-iq-sdk-manager sdk set '^8.0.0'
           echo "$(connect-iq-sdk-manager sdk current-path --bin)" >> "$GITHUB_PATH"
-          connect-iq-sdk-manager device download --manifest="$APP_DIR/manifest.xml"
+          connect-iq-sdk-manager device download --manifest="$APP_DIR/manifest.xml" --include-fonts \
+            || connect-iq-sdk-manager device download --manifest="$APP_DIR/manifest.xml"
 
       - name: Clave de desarrollador
         env:
@@ -98,6 +99,20 @@ jobs:
         run: |
           mkdir -p build
           monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165 -w -t -o build/tests-fr165.prg
+
+      - name: Pruebas en el simulador (sin red, base offline)
+        if: matrix.app == 'HorizonteCimas'
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update -qq || true
+          sudo apt-get install -y -qq xvfb libwebkit2gtk-4.1-0 libusb-1.0-0 libsecret-1-0 libjpeg-turbo8 >/dev/null 2>&1 || true
+          SDK_BIN=$(dirname "$(command -v monkeyc)")
+          ls "$SDK_BIN"
+          xvfb-run -a bash -c "\"$SDK_BIN/simulator\" > sim.log 2>&1 & sleep 25; timeout 300 monkeydo build/tests-fr165.prg fr165 -t > tests.log 2>&1; echo salida=\$? >> tests.log"
+          echo "----- resultados -----"; cat tests.log | tail -60
+          echo "----- simulador -----"; tail -20 sim.log || true
+          grep -q "PASSED" tests.log && ! grep -qE "FAILED|ERROR" tests.log
 
       - name: Compilar para Forerunner 165 y 165 Music (.prg para USB)
         run: |

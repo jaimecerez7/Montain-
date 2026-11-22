@@ -13,6 +13,7 @@ class EsferasView extends WatchUi.WatchFace {
     var lastWidth = 0;
     var loadedSky = -1;    // estado del cielo cuya pintura está cargada
     var loadedMoon = -1;
+    var loadedCollage = -1;   // variante del collage cargada (rota cada día)
 
     function initialize() {
         WatchFace.initialize();
@@ -52,9 +53,10 @@ class EsferasView extends WatchUi.WatchFace {
                 t.sun = WatchUi.loadResource(Rez.Drawables.Sun);
                 return;   // el cielo y la luna se cargan en cieloArt() según la hora
             }
+            loadedCollage = -1;
             var ids = [Rez.Drawables.BgCintaVerde, Rez.Drawables.BgCintaAmbar, Rez.Drawables.BgBloques,
-                Rez.Drawables.BgReticula, Rez.Drawables.BgCollage];
-            t.bg = WatchUi.loadResource(ids[theme]);
+                Rez.Drawables.BgReticula, null];
+            if (theme != 4) { t.bg = WatchUi.loadResource(ids[theme]); }
             if (theme == 3) { t.grid = WatchUi.loadResource(Rez.Drawables.Grid); }
             var sets = [
                 [Rez.Drawables.GlyphCv0, Rez.Drawables.GlyphCv1, Rez.Drawables.GlyphCv2, Rez.Drawables.GlyphCv3,
@@ -98,6 +100,18 @@ class EsferasView extends WatchUi.WatchFace {
         } catch (ex) {}
     }
 
+    // Collage: una de tres composiciones según el día del año.
+    function collageArt(t as Themes) as Void {
+        var v = data.dayIndex % 3;
+        if (v == loadedCollage) { return; }
+        try {
+            var ids = [Rez.Drawables.BgCollage, Rez.Drawables.BgCollage2, Rez.Drawables.BgCollage3];
+            t.bg = null;
+            t.bg = WatchUi.loadResource(ids[v]);
+            loadedCollage = v;
+        } catch (ex) {}
+    }
+
     function moonArt(t as Themes) as Void {
         try {
             if (data.moonIdx != loadedMoon) {
@@ -117,7 +131,8 @@ class EsferasView extends WatchUi.WatchFace {
         if (dc has :setAntiAlias) { dc.setAntiAlias(true); }
         data.update();
         if (theme == 5) { cieloArt(t); }
-        else if (theme == 2 || theme == 4) { moonArt(t); }
+        else if (theme == 2) { moonArt(t); }
+        else if (theme == 4) { collageArt(t); moonArt(t); }
         if (sleeping && burnIn) {
             t.aod(dc, data, System.getClockTime().min);
         } else {

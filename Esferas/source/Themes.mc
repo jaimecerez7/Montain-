@@ -208,19 +208,29 @@ class Themes {
     // ------------------------------------------------------------ COLLAGE
     // La hora, en papeles de color recortados y pegados; los datos, en una tira de papel.
     function collage(dc as Graphics.Dc, d as FaceData) as Void {
-        var ink = 0x24211E;
-        var soft = 0x6E6457;
-        background(dc, 0xEFE5CF);
+        var ink = 0x1E1B18;
+        var soft = 0x5E554A;
+        background(dc, 0xE8DCC4);
         var c = Graphics.TEXT_JUSTIFY_CENTER;
         Draw.text(dc, Draw.p(195), Draw.p(64), d.date, fLabel, ink, c);                             // cinta: fecha
         glyphTime(dc, Draw.p(195), Draw.p(104), d.time, -2);                                         // papel recortado
-        small(dc, Draw.p(104), Draw.p(258), [[d.cond, d.temp]], [ink, soft, 0xF5EFE3], 18);           // círculo crema
-        small(dc, Draw.p(104), Draw.p(284), [[:drop, d.precip]], [soft, soft, 0xF5EFE3], 14);
-        moonImg(dc, Draw.p(286), Draw.p(264));                                                       // círculo azul noche
-        Draw.text(dc, Draw.p(286), Draw.p(284), moonPct(d), fMini, 0xE9E2D2, c);
-        small(dc, Draw.p(195), Draw.p(258), [[:steps, d.stepsText()]], [ink, soft, 0xF2E7CF], 14);      // tira
-        small(dc, Draw.p(195), Draw.p(280), [[:battery, pct(d.battery)]], [soft, soft, 0xF2E7CF], 14);
-        small(dc, Draw.p(195), Draw.p(326), [[:sunrise, d.sunrise], [:sunset, d.sunset]], [ink, soft, 0xEBDDBA], 14);
+        small(dc, Draw.p(104), Draw.p(258), [[d.cond, d.temp]], [ink, soft, 0xEFE6D3], 18);           // círculo hueso
+        small(dc, Draw.p(104), Draw.p(284), [[:drop, d.precip]], [soft, soft, 0xEFE6D3], 14);
+        moonImg(dc, Draw.p(286), Draw.p(264));                                                       // círculo marino
+        Draw.text(dc, Draw.p(286), Draw.p(284), moonPct(d), fMini, 0xE4DCCB, c);
+        small(dc, Draw.p(195), Draw.p(256), [[:steps, d.stepsText()]], [ink, soft, 0xEDE3CF], 14);      // tira
+        // barra fina de progreso hacia el objetivo de pasos
+        var bx = Draw.p(162);
+        var bw = Draw.p(66);
+        var bh = Draw.p(2) < 1 ? 1 : Draw.p(2);
+        var f = d.goal > 0 ? d.steps.toFloat() / d.goal : 0.0;
+        if (f > 1) { f = 1.0; }
+        dc.setColor(0xCFC2A8, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(bx, Draw.p(276), bw, bh);
+        dc.setColor(0xC4501E, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(bx, Draw.p(276), (bw * f).toNumber(), bh);
+        small(dc, Draw.p(195), Draw.p(282), [[:battery, pct(d.battery)]], [soft, soft, 0xEDE3CF], 14);
+        small(dc, Draw.p(195), Draw.p(326), [[:sunrise, d.sunrise], [:sunset, d.sunset]], [ink, 0x3A322A, 0xD8C7A0], 14);
     }
 
     // ------------------------------------------------------------ CIELO PINTADO

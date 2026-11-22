@@ -130,8 +130,8 @@ def stamped(ch, seed):
     return rgba(np.broadcast_to(rgb, (h, w, 3)), m)
 
 
-PAPERS = ["#D7372A", "#1E8A4B", "#3E7CC8", "#D8A126", "#E98FA0", "#2A7E78", "#E1631E", "#151413",
-          "#8C2B2B", "#5A8FD0", "#151413"]
+PAPERS = ["#C4501E", "#1F3D2B", "#1C2B45", "#D69A2D", "#9E3B2C", "#2F6B6A", "#6B7A3A", "#141312",
+          "#B5461C", "#5F7F92", "#141312"]   # óxido, bosque, marino, mostaza, ladrillo, petróleo, oliva, negro…
 
 
 def cutout(ch, seed):
@@ -148,7 +148,7 @@ def cutout(ch, seed):
     shadow = np.pad(shadow, ((dy, 0), (dx, 0)))[:h, :w]
     color = hexrgb(PAPERS[CHARS.index(ch)])
     paper = noise(h, w, h // 3, w // 3, seed + 1)
-    rgb = np.broadcast_to(hexrgb("#FAF7F0"), (h, w, 3)).copy()
+    rgb = np.broadcast_to(hexrgb("#F2EBDD"), (h, w, 3)).copy()
     rgb = rgb * (1 - fill[..., None]) + (color * (0.92 + 0.12 * paper)[..., None]) * fill[..., None]
     a = np.maximum(border, shadow * 0.45)
     rgb = rgb * (border[..., None]) + np.zeros(3) * (1 - border[..., None])   # la sombra es negra

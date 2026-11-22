@@ -279,16 +279,16 @@ def grid_sprite(side):
 
 
 # ------------------------------------------------------------------ COLLAGE
-PALETTE = ["#D7372A", "#1E8A4B", "#EFA2A6", "#D8A126", "#5A8FD0", "#151413", "#F3EEE4", "#2A7E78",
-           "#E1631E", "#B9C6CB", "#8C2B2B"]
+PALETTE = ["#1F3D2B", "#1C2B45", "#C4501E", "#D69A2D", "#6B7A3A", "#141312", "#EDE3CF", "#2F6B6A",
+           "#9E3B2C", "#8FA6B2", "#3A2E2A"]   # bosque, marino, óxido, mostaza, oliva, negro, hueso, petróleo, ladrillo, azul polvo, café
 LABEL = (56, 88, 334, 294)
 
 
 COLLAGE_HOLDERS = {   # soportes de papel para los datos (diseño a 390)
-    "temp": ("circle", 104, 272, 44, "#F5EFE3"),
-    "moon": ("circle", 286, 272, 44, "#1F2A44"),
-    "steps": ("rect", 150, 248, 240, 298, "#F2E7CF"),
-    "sun": ("rect", 118, 320, 272, 348, "#EBDDBA"),
+    "temp": ("circle", 104, 272, 44, "#EFE6D3"),
+    "moon": ("circle", 286, 272, 44, "#1A2438"),
+    "steps": ("rect", 150, 248, 240, 298, "#EDE3CF"),
+    "sun": ("rect", 118, 320, 272, 348, "#D8C7A0"),
     "date": ("rect", 122, 56, 268, 84, "#EFE6CC"),
 }
 
@@ -320,9 +320,9 @@ def leaf(img, x, y, size, angle, color, seed):
     return ink_lines(img, [spline(vein, steps=20)], "#F3EEE4" if color != "#F3EEE4" else "#141312", 1.0, seed + 2)
 
 
-def bg_collage():
-    rng = np.random.default_rng(91)
-    img = linen(solid("#EFE5CF"), 0.06, 91)
+def bg_collage(seed=91):
+    rng = np.random.default_rng(seed)
+    img = linen(solid("#E8DCC4"), 0.06, seed)
     # 1) grandes papeles de fondo
     for i in range(70):
         c = PALETTE[rng.integers(len(PALETTE))]
@@ -337,11 +337,11 @@ def bg_collage():
     # 2) hojas, círculos con "ojo", rayas
     for i in range(9):
         img = leaf(img, rng.uniform(0, 390), rng.uniform(0, 390), rng.uniform(22, 40), rng.uniform(0, np.pi),
-                   ["#1E8A4B", "#2A7E78", "#151413"][i % 3], 600 + i)
+                   ["#1F3D2B", "#2F6B6A", "#6B7A3A", "#141312"][i % 4], 600 + i)
     for i in range(5):
         cx, cy, r = rng.uniform(20, 370), rng.uniform(20, 370), rng.uniform(12, 22)
         ring = [(cx + np.cos(q) * r, cy + np.sin(q) * r) for q in np.linspace(0, 2 * np.pi, 40)[:-1]]
-        img = over(img, solid(["#F3EEE4", "#D8A126", "#EFA2A6"][i % 3]), poly_mask(ring, 0.5))
+        img = over(img, solid(["#EDE3CF", "#D69A2D", "#C4501E"][i % 3]), poly_mask(ring, 0.5))
         pupil = [(cx + np.cos(q) * r * 0.45, cy + np.sin(q) * r * 0.45) for q in np.linspace(0, 2 * np.pi, 30)[:-1]]
         img = over(img, solid("#151413"), poly_mask(pupil, 0.5))
     for i in range(4):
@@ -360,7 +360,7 @@ def bg_collage():
     # 4) racimos de puntos
     for i in range(7):
         cx, cy = rng.uniform(20, 370), rng.uniform(20, 370)
-        c = ["#F3EEE4", "#151413", "#D7372A", "#1E8A4B"][i % 4]
+        c = ["#EDE3CF", "#141312", "#C4501E", "#D69A2D"][i % 4]
         m = Image.new("L", (N, N), 0)
         d = ImageDraw.Draw(m)
         for _ in range(16):
@@ -489,7 +489,9 @@ ART = {
     "cinta_ambar": lambda: bg_cinta("#EEEAE3", ("#9C3A06", "#E7801A", "#FFD15A"), "#5A2A08", 80),
     "bloques": bg_bloques,
     "reticula": bg_reticula,
-    "collage": bg_collage,
+    "collage": lambda: bg_collage(91),
+    "collage2": lambda: bg_collage(191),
+    "collage3": lambda: bg_collage(291),
     "cielo_noche": lambda: bg_cielo("noche"),
     "cielo_alba": lambda: bg_cielo("alba"),
     "cielo_dia": lambda: bg_cielo("dia"),

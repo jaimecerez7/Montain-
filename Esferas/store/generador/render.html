@@ -21,7 +21,7 @@ const P = v => Math.round(v * k);
 const IMG = {};
 const GLYPH_STYLES = ['cv', 'ca', 'bl', 're', 'co'];
 window.loadArt = () => Promise.all([
-  ...['bg_cinta_verde','bg_cinta_ambar','bg_bloques','bg_reticula','bg_collage','grid','sun',
+  ...['bg_cinta_verde','bg_cinta_ambar','bg_bloques','bg_reticula','bg_collage','bg_collage2','bg_collage3','grid','sun',
       'bg_cielo_noche','bg_cielo_alba','bg_cielo_dia','bg_cielo_dorada','bg_cielo_ocaso',
       ...[...Array(8).keys()].map(i => 'moon' + i)].map(n => [n, '../../resources/paint/' + n + '.png']),
   ...GLYPH_STYLES.flatMap(g => [...Array(11).keys()].map(i => ['g' + g + i, '../../resources/glyphs/g' + g + i + '.png']))
@@ -149,18 +149,21 @@ function reticula(d){
 
 // =================== COLLAGE ===================
 function collage(d){
-  art('collage');
-  const ink = '#24211E', soft = '#6E6457';
+  art(['collage', 'collage2', 'collage3'][d.variant || 0]);                             // un collage distinto cada día
+  const ink = '#1E1B18', soft = '#5E554A';
   text(P(195), P(64), d.date, F.label, ink);                                           // cinta adhesiva: fecha
   glyphTime(P(195), P(104), d.time, 'co', -2);                                         // papeles recortados: hora
-  row(P(104), P(258), [[d.cond, d.temp + '°']], ink, soft, '#F5EFE3', 18, F.small);       // círculo crema: tiempo
-  row(P(104), P(284), [['drop', d.precip + '%']], soft, soft, '#F5EFE3', 14, F.small);
-  const mp = IMG['moon' + d.moonIdx];                                                  // círculo azul noche: luna
+  row(P(104), P(258), [[d.cond, d.temp + '°']], ink, soft, '#EFE6D3', 18, F.small);       // círculo hueso: tiempo
+  row(P(104), P(284), [['drop', d.precip + '%']], soft, soft, '#EFE6D3', 14, F.small);
+  const mp = IMG['moon' + d.moonIdx];                                                  // círculo marino: luna
   dc.drawImage(mp, P(286) - mp.width / 2, P(264) - mp.height / 2);
-  text(P(286), P(284), Math.round(d.moonIllum * 100) + '%', F.mini, '#E9E2D2');
-  row(P(195), P(258), [['steps', fmtSteps(d.steps)]], ink, soft, '#F2E7CF', 14, F.small);   // tira: pasos y batería
-  row(P(195), P(280), [['battery', d.battery + '%']], soft, soft, '#F2E7CF', 14, F.small);
-  row(P(195), P(326), [['sunrise', d.sunrise], ['sunset', d.sunset]], ink, soft, '#EBDDBA', 14, F.small);  // cinta: sol
+  text(P(286), P(284), Math.round(d.moonIllum * 100) + '%', F.mini, '#E4DCCB');
+  row(P(195), P(256), [['steps', fmtSteps(d.steps)]], ink, soft, '#EDE3CF', 14, F.small);   // tira: pasos y batería
+  // barra fina de progreso hacia el objetivo de pasos
+  const bx = P(162), bw = P(66), by = P(276), f = Math.min(1, d.steps / d.goal);
+  rect(bx, by, bw, Math.max(1, P(2)), '#CFC2A8'); rect(bx, by, bw * f, Math.max(1, P(2)), '#C4501E');
+  row(P(195), P(282), [['battery', d.battery + '%']], soft, soft, '#EDE3CF', 14, F.small);
+  row(P(195), P(326), [['sunrise', d.sunrise], ['sunset', d.sunset]], ink, '#3A322A', '#D8C7A0', 14, F.small);  // cinta: sol
 }
 
 // =================== CIELO PINTADO ===================
@@ -217,7 +220,7 @@ window.render = (theme, d, size = 390) => {
   ({ cinta_verde: d => cinta(d, true), cinta_ambar: d => cinta(d, false), bloques, reticula, collage, aod, cielo,
      cielo_noche: d => cielo({...d, state: 'noche'}), cielo_alba: d => cielo({...d, state: 'alba'}),
      cielo_dia: d => cielo({...d, state: 'dia'}), cielo_dorada: d => cielo({...d, state: 'dorada'}),
-     cielo_ocaso: d => cielo({...d, state: 'ocaso'}) })[theme](d);
+     cielo_ocaso: d => cielo({...d, state: 'ocaso'}), collage2: collage, collage3: collage })[theme](d);
   dc.globalCompositeOperation = 'destination-in'; dc.beginPath(); dc.arc(size/2, size/2, size/2, 0, 7); dc.fill();
   dc.globalCompositeOperation = 'source-over';
 };

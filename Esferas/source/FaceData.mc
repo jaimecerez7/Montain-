@@ -36,6 +36,7 @@ class FaceData {
     var peak = 30.0;           // elevación máxima del sol hoy (grados)
     var moonIdx = 0;           // fase de la luna en 8 pasos (0 nueva, 4 llena)
     var skyState = 2;          // 0 noche, 1 alba, 2 día, 3 hora dorada, 4 ocaso
+    var dayIndex = 0;          // día del año (rota el collage cada día)
     var nextSunrise = false;   // true: el siguiente evento es el amanecer
 
     var curveKey = -1;         // día del año con el que se calculó sunCurve
@@ -69,6 +70,7 @@ class FaceData {
         var a = Math.acos(1 - 2 * moonIllum) / (2 * Math.PI);          // 0..0,5
         var frac = waxing ? a : 1 - a;
         moonIdx = Math.round(frac * 8).toNumber() % 8;
+        dayIndex = Astro.dayOfYear(g.year as Number, g.month as Number, g.day as Number);
         updateSun(g.year as Number, g.month as Number, g.day as Number, ct, ds.is24Hour);
         skyState = computeSky();
     }

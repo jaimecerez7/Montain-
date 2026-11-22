@@ -15,6 +15,7 @@ const d = { time: '13:47', date: 'SÁB 21 NOV', temp: 12, precip: 30, cond: 'rai
   const p = await b.newPage({ viewport: { width: 454, height: 454 }, deviceScaleFactor: 1 });
   await p.goto('file://' + path.resolve(__dirname, 'render.html'));
   await p.evaluate(() => document.fonts.load('250 124px Jost'));
+  await p.evaluate(() => window.loadArt());
   await p.waitForTimeout(300);
   for (const t of ['campos', 'organica', 'trazos', 'aod']) {
     await p.evaluate(([t, d]) => window.render(t, d), [t, d]);

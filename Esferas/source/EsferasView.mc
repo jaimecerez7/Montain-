@@ -24,11 +24,41 @@ class EsferasView extends WatchUi.WatchFace {
         var t = null;
         try { t = Application.Properties.getValue("Theme"); } catch (ex) {}
         theme = t instanceof Number && t >= 0 && t <= 2 ? t : 0;
+        loadArt();
     }
 
     function onLayout(dc as Graphics.Dc) as Void {
         themes = new Themes(WatchUi.loadResource(Rez.Fonts.Time), WatchUi.loadResource(Rez.Fonts.Data),
             WatchUi.loadResource(Rez.Fonts.Label));
+        loadArt();
+    }
+
+    // Solo se carga la pintura del estilo activo (y las pinceladas si es Trazos).
+    function loadArt() as Void {
+        var t = themes;
+        if (t == null) { return; }
+        t.bg = null;
+        t.strokes = [];
+        try {
+            if (theme == 1) {
+                t.bg = WatchUi.loadResource(Rez.Drawables.BgOrganica);
+            } else if (theme == 2) {
+                t.bg = WatchUi.loadResource(Rez.Drawables.BgTrazos);
+                t.strokes = [
+                    [WatchUi.loadResource(Rez.Drawables.Stroke0), WatchUi.loadResource(Rez.Drawables.Tip0)],
+                    [WatchUi.loadResource(Rez.Drawables.Stroke1), WatchUi.loadResource(Rez.Drawables.Tip1)],
+                    [WatchUi.loadResource(Rez.Drawables.Stroke2), WatchUi.loadResource(Rez.Drawables.Tip2)],
+                    [WatchUi.loadResource(Rez.Drawables.Stroke3), WatchUi.loadResource(Rez.Drawables.Tip3)],
+                    [WatchUi.loadResource(Rez.Drawables.Stroke4), WatchUi.loadResource(Rez.Drawables.Tip4)]
+                ];
+            } else {
+                t.bg = WatchUi.loadResource(Rez.Drawables.BgCampos);
+            }
+        } catch (ex) {
+            // Sin memoria para la pintura: la esfera sigue funcionando con fondo liso.
+            t.bg = null;
+            t.strokes = [];
+        }
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {

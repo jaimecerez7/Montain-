@@ -18,8 +18,8 @@ BASE = 390
 UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÑÜ"
 FONTS = [
     ("time", 124, 250, "0123456789:", 0, True),
-    ("data", 27, 400, "0123456789:°%.,-+/ kmhKMH" + UPPER, 0, True),
-    ("label", 19, 500, "0123456789 ·" + UPPER, 3, False),
+    ("data", 28, 340, "0123456789:°%.,-+/ kmhKMH" + UPPER, 1, True),
+    ("label", 19, 460, "0123456789 ·" + UPPER, 5, False),
 ]
 # Resolución (lado en px) → carpeta de recursos
 SIZES = {390: "resources", 260: "resources-round-260x260", 280: "resources-round-280x280",

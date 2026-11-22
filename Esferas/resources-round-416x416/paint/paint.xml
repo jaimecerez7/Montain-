@@ -1,0 +1,15 @@
+<drawables>
+    <bitmap id="BgCampos" filename="bg_campos.png" packingFormat="jpg"/>
+    <bitmap id="BgOrganica" filename="bg_organica.png" packingFormat="jpg"/>
+    <bitmap id="BgTrazos" filename="bg_trazos.png" packingFormat="jpg"/>
+    <bitmap id="Stroke0" filename="stroke0.png"/>
+    <bitmap id="Tip0" filename="tip0.png"/>
+    <bitmap id="Stroke1" filename="stroke1.png"/>
+    <bitmap id="Tip1" filename="tip1.png"/>
+    <bitmap id="Stroke2" filename="stroke2.png"/>
+    <bitmap id="Tip2" filename="tip2.png"/>
+    <bitmap id="Stroke3" filename="stroke3.png"/>
+    <bitmap id="Tip3" filename="tip3.png"/>
+    <bitmap id="Stroke4" filename="stroke4.png"/>
+    <bitmap id="Tip4" filename="tip4.png"/>
+</drawables>

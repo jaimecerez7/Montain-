@@ -9,10 +9,23 @@ body { margin: 0; background: #000; } canvas { display: block; }
 // Prototipo de las esferas: mismas primitivas que Graphics.Dc (rectángulos, polígonos,
 // círculos, líneas de 2 px, texto) para que el paso a Monkey C sea directo.
 const S = 390;
+// Fondos pintados y pinceladas (los mismos PNG que usa el reloj a 390 px).
+const IMG = {};
+window.loadArt = () => Promise.all(['bg_campos','bg_organica','bg_trazos',
+  ...[0,1,2,3,4].flatMap(i => ['stroke'+i, 'tip'+i])].map(n => new Promise(ok => {
+    const im = new Image(); im.onload = () => { IMG[n] = im; ok(); }; im.src = '../../resources/paint/' + n + '.png'; })));
+function bgImage(n){ dc.drawImage(IMG['bg_' + n], 0, 0, S*k, S*k); }
+function brushStroke(cx, base, frac, v){
+  const body = IMG['stroke' + v], tip = IMG['tip' + v], w = body.width, hMax = body.height, tipH = tip.height;
+  const h = Math.trunc(tipH + 4 + (hMax - tipH - 10) * frac), x = cx - Math.trunc(w / 2), top = base - h;
+  dc.save(); dc.beginPath(); dc.rect(x, top + tipH, w, h - tipH + hMax); dc.clip();
+  dc.drawImage(body, x, base - hMax + P(6)); dc.restore();
+  dc.drawImage(tip, x, top);
+}
 const F = {
   time:  { size: 124, weight: 250, track: 0 },
-  data:  { size: 27,  weight: 400, track: 0 },
-  label: { size: 19,  weight: 500, track: 3 },
+  data:  { size: 28,  weight: 340, track: 1 },
+  label: { size: 19,  weight: 460, track: 5 },
 };
 let dc, k = 1;
 const P = v => Math.round(v * k);
@@ -99,14 +112,11 @@ function band(y0, y1, cols){
   cols.forEach((c, i) => rrect(P(-30 + i*6), P(y0 + i*3), P(450 - i*12), P(y1 - y0 - i*6), P(14), c));
 }
 function campos(d){
-  rect(0, 0, S*k, S*k, '#2B1E18');
-  band(-30, 228, ['#1A2236', '#1B263D', '#1D2A44', '#1F2E4A', '#213250']);
-  band(236, 300, ['#9E3B1C', '#AA421F', '#B44922', '#BC4F25', '#C25528']);
-  band(308, 430, ['#D8C8A9', '#DFD0B2', '#E5D8BC', '#E9DDC3', '#ECE1C9']);
+  bgImage('campos');
   const cream = '#EFE4CB', soft = '#B4AC9A', warm = '#F7E9D2', ink = '#3A2A20';
   text(P(195), P(58), d.date, F.label, soft);
   text(P(195), P(86), d.time, F.time, cream);
-  weatherRow(P(195), P(188), d, cream, soft, '#21314F');
+  weatherRow(P(195), P(188), d, cream, soft, '#1C2640');
   // Banda óxido: amanecer · línea del día con el sol en su sitio · atardecer
   const y = P(258), ic = P(24);
   icon('sunrise', P(52), y - P(3), ic, warm); text(P(82), y, d.sunrise, F.data, warm, 'l');
@@ -116,7 +126,7 @@ function campos(d){
   circle(x0 + (x1 - x0) * d.dayFrac, ly, P(5), warm);
   // Banda crema: pasos · luna
   icon('steps', P(96), P(330), P(22), ink); text(P(126), P(330), fmtSteps(d.steps), F.data, ink, 'l');
-  moon(P(246), P(343), P(11), d.moonIllum, d.waxing, ink, '#D3C3A4');
+  moon(P(246), P(343), P(11), d.moonIllum, d.waxing, ink, '#CDBB98');
   text(P(265), P(330), Math.round(d.moonIllum * 100) + '%', F.data, ink, 'l');
 }
 
@@ -146,17 +156,8 @@ function spline(pts, closed, steps){
 function blob(pts, col){ poly(spline(pts, true, 6), col); }
 function curve(pts, col){ polyline(spline(pts, false, 8), col, Math.max(2, P(2))); }
 function organica(d){
-  const bg = '#5A1824';
-  rect(0, 0, S*k, S*k, bg);
-  // Formas solo en la periferia: el centro queda liso para leer.
-  blob([[-30,-30],[120,-30],[112,30],[58,92],[-30,118]], '#8C8957');            // oliva
-  blob([[-30,150],[30,140],[52,200],[34,250],[-30,262]], '#7A5569');            // malva
-  blob([[-30,282],[60,272],[180,290],[200,352],[150,430],[-30,430]], '#232C44');  // azul noche
-  blob([[350,110],[430,80],[430,270],[372,258],[344,190]], '#C0561F');          // naranja
-  blob([[214,282],[300,268],[430,290],[430,430],[200,430],[196,340]], '#E6D6BA'); // crema
-  blob([[175,372],[226,356],[262,430],[150,430]], '#B24C1D');                     // óxido
-  curve([[96,-10],[70,70],[28,150],[44,230],[20,300]], '#14080A');
-  curve([[430,262],[372,272],[330,330],[300,372],[285,430]], '#14080A');
+  const bg = '#4E1420';
+  bgImage('organica');
   const cream = '#F2E6D2', soft = '#D2B4AE';
   text(P(195), P(52), d.date, F.label, cream);
   text(P(195), P(80), d.time, F.time, cream);
@@ -184,31 +185,36 @@ function stroke(cx, yb, h, w, col, streak, r){
   line(cx - w*0.15 + lean*0.2, yb - h*0.15, cx - w*0.15 + lean*0.8, yb - h*0.8, streak, Math.max(1, P(1.5)));
 }
 function trazos(d){
-  const paper = '#EEE6D6', ink = '#1C1B19', soft = '#6E675C', blue = '#2341A6';
-  rect(0, 0, S*k, S*k, paper);
-  blob([[205,300],[268,262],[340,250],[430,262],[430,430],[215,430]], '#DCCFB2');   // colina
-  // Curva del sol: solo la parte diurna, sobre el horizonte, con el sol en su posición actual.
-  const xs = P(28), xe = P(362), yh = P(262), pxd = P(1.4);
-  line(xs, yh, xe, yh, '#BDB2A0', Math.max(1, P(1.5)));
-  const X = f => xs + (xe - xs) * f, day = [];
+  const paper = '#EEE6D6', ink = '#1C1B19', soft = '#6E675C';
+  bgImage('trazos');
+  // Pinceladas = pasos: 7 días anteriores + hoy (la clara). Altura relativa al objetivo.
+  const vals = [...d.history, d.steps], goal = Math.max(d.goal, ...vals), first = 8 - vals.length;
+  vals.forEach((v, i) => brushStroke(P(80 + (first + i) * 19), P(376), Math.min(1, v / goal), i === vals.length - 1 ? 4 : (first + i) % 4));
+  // Curva del sol por encima, escalada a altura fija.
+  const xs = P(24), xe = P(366), yh = P(304), peak = Math.max(1, ...d.sunCurve), pxd = 58 * k / peak, X = f => xs + (xe - xs) * f;
+  line(xs, yh, xe, yh, '#B9AE9B', Math.max(1, P(1.5)));
+  const day = [[X(d.riseFrac), yh]];
   d.sunCurve.forEach((e, i) => { if (e >= 0) day.push([X(i / (d.sunCurve.length - 1)), yh - e * pxd]); });
-  day.unshift([X(d.riseFrac), yh]); day.push([X(d.setFrac), yh]);
+  day.push([X(d.setFrac), yh]);
   polyline(day, ink, Math.max(2, P(2)));
-  if (d.sunNow > 0) circle(X(d.dayPos), yh - d.sunNow * pxd, P(6), '#E07A2E');
-  text(X(d.riseFrac) - P(8), yh - P(24), d.sunrise, F.data, soft, 'r');
-  text(X(d.setFrac) + P(8), yh - P(24), d.sunset, F.data, soft, 'l');
-  // Trazos = pasos: 7 días anteriores + hoy (más claro). Altura relativa al objetivo.
-  const r = rng(11), base = P(350), maxH = P(74), goal = Math.max(d.goal, ...d.history, d.steps);
-  const vals = [...d.history, d.steps];
-  vals.forEach((v, i) => { const h = Math.max(P(10), maxH * Math.min(1, v / goal)), today = i === vals.length - 1;
-    stroke(P(104 + i * 14), base, h, P(10), today ? '#6F86D6' : blue, today ? '#9DB0E6' : '#3E5CC4', r); });
-  // Texto
-  text(P(195), P(50), d.date, F.label, ink);
-  text(P(195), P(76), d.time, F.time, ink);
-  weatherRow(P(195), P(178), d, ink, soft, paper);
-  icon('steps', P(226), P(286), P(20), ink); text(P(252), P(286), fmtSteps(d.steps), F.data, ink, 'l');
-  moon(P(236), P(331), P(10), d.moonIllum, d.waxing, ink, '#C9BEA6');
-  text(P(252), P(319), Math.round(d.moonIllum * 100) + '%', F.data, ink, 'l');
+  if (d.sunNow > 0) { circle(X(d.dayPos), yh - d.sunNow * pxd, P(8), paper); circle(X(d.dayPos), yh - d.sunNow * pxd, P(6), '#E07A2E'); }
+  text(P(195), P(46), d.date, F.label, ink);
+  text(P(195), P(70), d.time, F.time, ink);
+  // Tiempo · lluvia · luna
+  { const y = P(170), ic = P(26), gap = P(8), sep = P(22), drop = P(14), mr = P(9), mt = Math.round(d.moonIllum * 100) + '%';
+    const t1 = d.temp + '°', t2 = d.precip + '%';
+    const w = ic + gap + textW(t1, F.data) + sep + drop + gap + textW(t2, F.data) + sep + 2*mr + gap + textW(mt, F.data);
+    let x = P(195) - w / 2;
+    icon(d.cond, x, y - P(4), ic, ink, paper); x += ic + gap;
+    x += text(x, y, t1, F.data, ink, 'l') + sep;
+    icon('drop', x, y + P(2), drop, soft); x += drop + gap;
+    x += text(x, y, t2, F.data, ink, 'l') + sep;
+    moon(x + mr, y + P(10), mr, d.moonIllum, d.waxing, ink, '#CFC4AE'); x += 2*mr + gap;
+    text(x, y, mt, F.data, ink, 'l'); }
+  { const y = P(208), ic = P(22), sw = ic + P(8) + textW(d.sunrise, F.data), xr = P(195) - P(18) - sw;
+    icon('sunrise', xr, y - P(2), ic, soft); text(xr + ic + P(8), y, d.sunrise, F.data, soft, 'l');
+    icon('sunset', P(195) + P(18), y - P(2), ic, soft); text(P(195) + P(18) + ic + P(8), y, d.sunset, F.data, soft, 'l'); }
+  icon('steps', P(230), P(312), P(18), ink); text(P(253), P(312), fmtSteps(d.steps), F.data, ink, 'l');
 }
 
 // =================== Siempre encendida (AMOLED) ===================

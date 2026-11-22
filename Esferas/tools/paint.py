@@ -191,10 +191,11 @@ def splatter(img, color, seed, region, count=70):
 def bg_cinta(ground, colors, ink, seed):
     img = mottle(linen(solid(ground), 0.09, seed), 0.05, seed + 1)
     # gesto caligráfico: entra por la izquierda, hace dos bucles que se pisan y sale por arriba a la derecha
-    ctrl = [(x, y + 30) for x, y in [(-60, 318), (30, 250), (132, 238), (204, 290), (192, 362), (118, 352),
-            (128, 290), (222, 248), (312, 276), (352, 334), (300, 374), (268, 318), (330, 248), (450, 236)]]
+    # gesto: entra abajo a la izquierda, sube por detrás de la base de la hora, cruza y se enrosca a la derecha
+    ctrl = [(-60, 330), (24, 272), (110, 246), (196, 262), (262, 300), (246, 362), (184, 352), (206, 294),
+            (290, 256), (356, 276), (380, 340), (340, 392), (300, 430)]
     img = ribbon(img, ctrl, colors, seed + 2, width=46.0, twists=1.75)
-    img = splatter(img, ink, seed + 3, (20, 245, 370, 385))
+    img = splatter(img, ink, seed + 3, (30, 214, 370, 385))
     return to_image(vignette(img, 0.10))
 
 
@@ -215,7 +216,7 @@ def bg_bloques():
 
 
 # ------------------------------------------------------------------ RETÍCULA
-GRID = dict(x0=105, y0=150, pitch=18, n=10, size=12.5)
+GRID = dict(x0=105, y0=160, pitch=18, n=10, size=12.5)
 
 
 def stamp_mask(seed, cells):
@@ -318,14 +319,12 @@ def bg_collage():
             r = rng.uniform(2.5, 5) * K
             d.ellipse((px * K - r, py * K - r, px * K + r, py * K + r), fill=255)
         img = over(img, solid(c), np.asarray(m.filter(ImageFilter.GaussianBlur(0.5 * K)), np.float32) / 255)
-    # cartela: papel rasgado con sombra y cinta adhesiva
-    x0, y0, x1, y1 = LABEL
-    shadow = rect_mask(x0 + 3, y0 + 4, x1 + 3, y1 + 4, 400, rough=3, soft=4)
-    img = img * (1 - 0.35 * shadow)[..., None]
-    paper = mottle(linen(solid("#F4EEE2"), 0.04, 401), 0.04, 402, 3)
-    img = over(img, paper, rect_mask(x0, y0, x1, y1, 403, rough=3.5, soft=0.8))
-    tape = rect_mask(170, y0 - 10, 222, y0 + 10, 404, rough=1.5, soft=0.8)
-    img = over(img, solid("#E9DFC6"), tape * 0.75)
+    # tira de papel para los datos (con sombra) y trozo de cinta adhesiva para la fecha
+    for (x0, y0, x1, y1), seed, col, sh in [((74, 252, 316, 300), 400, "#F4EEE2", 0.35), ((122, 58, 268, 86), 410, "#EFE6CC", 0.18)]:
+        shadow = rect_mask(x0 + 2, y0 + 3, x1 + 2, y1 + 3, seed, rough=2.5, soft=3)
+        img = img * (1 - sh * shadow)[..., None]
+        paper = mottle(linen(solid(col), 0.04, seed + 1), 0.04, seed + 2, 3)
+        img = over(img, paper, rect_mask(x0, y0, x1, y1, seed + 3, rough=3.0, soft=0.8) * (0.96 if seed == 400 else 0.88))
     return to_image(vignette(img, 0.08))
 
 

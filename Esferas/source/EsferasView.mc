@@ -39,15 +39,37 @@ class EsferasView extends WatchUi.WatchFace {
         if (t == null) { return; }
         t.bg = null;
         t.grid = null;
+        t.glyphs = [];
         try {
             var ids = [Rez.Drawables.BgCintaVerde, Rez.Drawables.BgCintaAmbar, Rez.Drawables.BgBloques,
                 Rez.Drawables.BgReticula, Rez.Drawables.BgCollage];
             t.bg = WatchUi.loadResource(ids[theme]);
             if (theme == 3) { t.grid = WatchUi.loadResource(Rez.Drawables.Grid); }
+            var sets = [
+                [Rez.Drawables.GlyphCv0, Rez.Drawables.GlyphCv1, Rez.Drawables.GlyphCv2, Rez.Drawables.GlyphCv3,
+                 Rez.Drawables.GlyphCv4, Rez.Drawables.GlyphCv5, Rez.Drawables.GlyphCv6, Rez.Drawables.GlyphCv7,
+                 Rez.Drawables.GlyphCv8, Rez.Drawables.GlyphCv9, Rez.Drawables.GlyphCv10],
+                [Rez.Drawables.GlyphCa0, Rez.Drawables.GlyphCa1, Rez.Drawables.GlyphCa2, Rez.Drawables.GlyphCa3,
+                 Rez.Drawables.GlyphCa4, Rez.Drawables.GlyphCa5, Rez.Drawables.GlyphCa6, Rez.Drawables.GlyphCa7,
+                 Rez.Drawables.GlyphCa8, Rez.Drawables.GlyphCa9, Rez.Drawables.GlyphCa10],
+                [Rez.Drawables.GlyphBl0, Rez.Drawables.GlyphBl1, Rez.Drawables.GlyphBl2, Rez.Drawables.GlyphBl3,
+                 Rez.Drawables.GlyphBl4, Rez.Drawables.GlyphBl5, Rez.Drawables.GlyphBl6, Rez.Drawables.GlyphBl7,
+                 Rez.Drawables.GlyphBl8, Rez.Drawables.GlyphBl9, Rez.Drawables.GlyphBl10],
+                [Rez.Drawables.GlyphRe0, Rez.Drawables.GlyphRe1, Rez.Drawables.GlyphRe2, Rez.Drawables.GlyphRe3,
+                 Rez.Drawables.GlyphRe4, Rez.Drawables.GlyphRe5, Rez.Drawables.GlyphRe6, Rez.Drawables.GlyphRe7,
+                 Rez.Drawables.GlyphRe8, Rez.Drawables.GlyphRe9, Rez.Drawables.GlyphRe10],
+                [Rez.Drawables.GlyphCo0, Rez.Drawables.GlyphCo1, Rez.Drawables.GlyphCo2, Rez.Drawables.GlyphCo3,
+                 Rez.Drawables.GlyphCo4, Rez.Drawables.GlyphCo5, Rez.Drawables.GlyphCo6, Rez.Drawables.GlyphCo7,
+                 Rez.Drawables.GlyphCo8, Rez.Drawables.GlyphCo9, Rez.Drawables.GlyphCo10]
+            ];
+            var g = [];
+            for (var i = 0; i < 11; i++) { g.add(WatchUi.loadResource(sets[theme][i])); }
+            t.glyphs = g;
         } catch (ex) {
             // Sin memoria para la obra: la esfera sigue funcionando con fondo liso.
             t.bg = null;
             t.grid = null;
+            t.glyphs = [];
         }
     }
 

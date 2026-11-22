@@ -17,8 +17,19 @@ const F = {
 let dc, k = 1;
 const P = v => Math.round(v * k);
 const IMG = {};
-window.loadArt = () => Promise.all(['bg_cinta_verde','bg_cinta_ambar','bg_bloques','bg_reticula','bg_collage','grid']
-  .map(n => new Promise(ok => { const im = new Image(); im.onload = () => { IMG[n] = im; ok(); }; im.src = '../../resources/paint/' + n + '.png'; })));
+const GLYPH_STYLES = ['cv', 'ca', 'bl', 're', 'co'];
+window.loadArt = () => Promise.all([
+  ...['bg_cinta_verde','bg_cinta_ambar','bg_bloques','bg_reticula','bg_collage','grid'].map(n => [n, '../../resources/paint/' + n + '.png']),
+  ...GLYPH_STYLES.flatMap(g => [...Array(11).keys()].map(i => ['g' + g + i, '../../resources/glyphs/g' + g + i + '.png']))
+].map(([n, src]) => new Promise(ok => { const im = new Image(); im.onload = () => { IMG[n] = im; ok(); }; im.src = src; })));
+// Hora con cifras pintadas: cada cifra trae PAD px de margen a cada lado.
+const PAD = 6;
+function glyphTime(cx, top, t, style, track){
+  const gs = [...t].map(ch => IMG['g' + style + (ch === ':' ? 10 : +ch)]), pad = P(PAD);
+  let w = -P(track); for (const g of gs) w += g.width - 2 * pad + P(track);
+  let x = cx - w / 2 - pad;
+  for (const g of gs) { dc.drawImage(g, x, top - pad); x += g.width - 2 * pad + P(track); }
+}
 
 function font(f){ return `${f.weight} ${P(f.size)}px Jost`; }
 function textW(t, f){ dc.font = font(f); return dc.measureText(t).width + P(f.track) * Math.max(0, t.length - 1); }
@@ -89,10 +100,9 @@ function sunItem(d){ return d.nextSun === 'sunrise' ? ['sunrise', d.sunrise] : [
 function cinta(d, verde){
   art(verde ? 'cinta_verde' : 'cinta_ambar');
   const ink = verde ? '#1E2620' : '#2A1C11', soft = verde ? '#5E665E' : '#86735F', bg = verde ? '#D4CFC3' : '#EEEAE3';
-  text(P(195), P(50), d.date, F.label, soft);
-  text(P(195), P(72), d.time, F.time, ink);
-  row(P(195), P(178), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)], ['battery', d.battery + '%']], ink, soft, bg);
-  const s = sunItem(d); row(P(195), P(210), [s], soft, soft, bg, 20);
+  text(P(195), P(42), d.date, F.label, soft);
+  row(P(195), P(70), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)], ['battery', d.battery + '%']], ink, soft, bg, 20);
+  glyphTime(P(195), P(110), d.time, verde ? 'cv' : 'ca', 2);
 }
 
 // =================== BLOQUES ===================
@@ -102,7 +112,7 @@ function bloques(d){
   row(P(193), P(102), [[d.cond, d.temp + '°']], cream, cream, '#7A2C2E', 24);
   row(P(312), P(102), [['battery', d.battery + '%']], cream, cream, '#4A161A', 22);
   text(P(250), P(166), d.date, F.label, '#B9B2A8');
-  text(P(250), P(194), d.time, F.timem, '#F2EBE1');
+  glyphTime(P(250), P(196), d.time, 'bl', 2);
   icon('steps', P(58), P(186), P(24), dark);
   text(P(70), P(220), fmtSteps(d.steps), F.data, dark);
   const s = sunItem(d); row(P(250), P(299), [s], cream, cream, '#A3461C', 18);
@@ -113,27 +123,25 @@ function reticula(d){
   art('reticula');
   const ink = '#1C1A17', soft = '#6B655C', paper = '#EDE9E1';
   text(P(195), P(30), d.date, F.label, ink);
-  text(P(195), P(54), d.time, F.timem, ink);
+  glyphTime(P(195), P(50), d.time, 're', 6);
   const s = sunItem(d);
-  row(P(195), P(124), [[d.cond, d.temp + '°'], ['battery', d.battery + '%'], s], soft, soft, paper, 20);
+  row(P(195), P(132), [[d.cond, d.temp + '°'], ['battery', d.battery + '%'], s], soft, soft, paper, 20);
   // Retícula = pasos: cada casilla es el 1 % del objetivo.
   const n = Math.min(100, Math.floor(d.steps / d.goal * 100)), g = IMG.grid;
-  const gx = P(105), gy = P(150), pitch = 18 * k, rows = Math.floor(n / 10), rem = n % 10;
+  const gx = P(105), gy = P(160), pitch = 18 * k, rows = Math.floor(n / 10), rem = n % 10;
   dc.save(); dc.beginPath();
   dc.rect(gx, gy, g.width, rows * pitch); dc.rect(gx, gy + rows * pitch, rem * pitch, pitch);
   dc.clip(); dc.drawImage(g, gx, gy); dc.restore();
-  text(P(195), P(338), fmtSteps(d.steps) + ' PASOS', F.label, ink);
+  text(P(195), P(346), fmtSteps(d.steps) + ' PASOS', F.label, ink);
 }
 
 // =================== COLLAGE ===================
 function collage(d){
   art('collage');
   const ink = '#24211E', soft = '#857A6B', paper = '#F4EEE2';
-  text(P(195), P(110), d.date, F.label, soft);
-  text(P(195), P(134), d.time, F.timem, ink);
-  line(P(150), P(210), P(240), P(210), '#D6CCBB', 1);
-  row(P(195), P(224), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)]], ink, soft, paper, 22);
-  const s = sunItem(d); row(P(195), P(260), [['battery', d.battery + '%'], s], soft, soft, paper, 20);
+  text(P(195), P(66), d.date, F.label, ink);
+  glyphTime(P(195), P(112), d.time, 'co', -2);
+  row(P(195), P(264), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)], ['battery', d.battery + '%']], ink, soft, paper, 20);
 }
 
 function aod(d){

@@ -106,17 +106,21 @@ jobs:
       - name: Pruebas en el simulador (sin red, base offline)
         if: matrix.app == 'HorizonteCimas'
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 13
         run: |
           # El simulador de Linux necesita libwebkit2gtk-4.0, que solo existe hasta Ubuntu 22.04:
           # se ejecuta en un contenedor 22.04 con el SDK y los relojes ya descargados.
           SDK_BIN=$(dirname "$(command -v monkeyc)")
-          docker run --rm -e HOME=/home/runner -v "$HOME/.Garmin:/home/runner/.Garmin" -v "$PWD:/w" -w /w ubuntu:22.04 bash -c "
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get update -qq && apt-get install -y -qq xvfb xauth openjdk-17-jre-headless libwebkit2gtk-4.0-37 \
-              libusb-1.0-0 libsecret-1-0 libsm6 libgtk-3-0 >/dev/null 2>&1
-            xvfb-run -a bash -c '\"$SDK_BIN/simulator\" > sim.log 2>&1 & sleep 25; timeout 300 \"$SDK_BIN/monkeydo\" build/tests-fr165.prg fr165 -t > tests.log 2>&1; echo salida=\$? >> tests.log'
-          " || true
+          timeout 600 docker run --rm -e HOME=/home/runner -v "$HOME/.Garmin:/home/runner/.Garmin" -v "$PWD:/w" -w /w ubuntu:22.04 bash -c "
+            export DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC
+            echo instalando dependencias…
+            timeout 300 bash -c 'apt-get update -qq && apt-get install -y -qq --no-install-recommends xvfb xauth \
+              openjdk-17-jre-headless libwebkit2gtk-4.0-37 libusb-1.0-0 libsecret-1-0 libsm6 libgtk-3-0' > apt.log 2>&1
+            echo apt=\$?; tail -5 apt.log
+            echo lanzando simulador…
+            timeout 280 xvfb-run -a bash -c '\"$SDK_BIN/simulator\" > sim.log 2>&1 & S=\$!; sleep 25; timeout 200 \"$SDK_BIN/monkeydo\" build/tests-fr165.prg fr165 -t > tests.log 2>&1; echo salida=\$? >> tests.log; kill \$S'
+            echo fin=\$?
+          " || echo "docker terminó con error o por tiempo"
           echo "----- resultados -----"; tail -80 tests.log || true
           echo "----- simulador -----"; tail -20 sim.log || true
           grep -q "PASSED" tests.log && ! grep -qE "FAILED|ERROR" tests.log

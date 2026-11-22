@@ -214,41 +214,40 @@ class Themes {
 
     // ------------------------------------------------------------ COLLAGE
     // La hora, en papeles de color recortados y pegados; los datos, en una tira de papel.
+    // Batería camuflada: cinco rayitas (el motivo de rayas del collage); las oscuras son la carga.
+    function batteryBars(dc as Graphics.Dc, x0, y0, level, ink, empty) as Void {
+        var n = Math.round(level / 20.0).toNumber();
+        var w = Draw.p(3.2) < 2 ? 2 : Draw.p(3.2);
+        for (var i = 0; i < 5; i++) {
+            dc.setColor(i < n ? ink : empty, Graphics.COLOR_TRANSPARENT);
+            dc.fillRectangle(x0 + Draw.p(i * 6), y0, w, Draw.p(17));
+        }
+    }
+
     function collage(dc as Graphics.Dc, d as FaceData) as Void {
-        var ink = 0x1C1A17;
-        var brown = 0x5A4E40;
+        var ink = 0x2A2119;
+        var soft = 0x5C4D3C;
         background(dc, 0xEFE5CF);
-        var l = Graphics.TEXT_JUSTIFY_LEFT;
         var c = Graphics.TEXT_JUSTIFY_CENTER;
-        // cinta de la fecha: fecha · batería
-        var bat = pct(d.battery);
-        var dw = dc.getTextWidthInPixels(d.date, fLabel);
-        var bw2 = Draw.p(14) + Draw.p(5) + dc.getTextWidthInPixels(bat, fSmall);
-        var gapD = Draw.p(16);
-        var dx0 = Draw.p(195) - (dw + gapD + bw2) / 2;
-        Draw.text(dc, dx0, Draw.p(64), d.date, fLabel, ink, l);
-        small(dc, dx0 + dw + gapD + bw2 / 2, Draw.p(64), [[:battery, bat]], [brown, brown, 0xEFE6CC], 14);
-        glyphTimeB(dc, Draw.p(195), Draw.p(104), d.time, -2, true);                       // papeles que saltan
-        // círculo azafrán: tiempo
-        row(dc, Draw.p(98), Draw.p(250), [[d.cond, d.temp]], ink, ink, 0xE8B227, 22);
-        small(dc, Draw.p(98), Draw.p(282), [[:drop, d.precip]], [0x4A3810, 0x4A3810, 0xE8B227], 14);
-        // tira blanca: pasos y su progreso
-        Draw.iconSteps(dc, Draw.p(186), Draw.p(240), Draw.p(18), brown);
-        Draw.text(dc, Draw.p(195), Draw.p(260), d.stepsText(), fData, ink, c);
-        var bx = Draw.p(160);
-        var bw = Draw.p(70);
-        var bh = Draw.p(2.5) < 1 ? 1 : Draw.p(2.5);
+        Draw.text(dc, Draw.p(172), Draw.p(64), d.date, fLabel, ink, c);                               // cinta: fecha
+        batteryBars(dc, Draw.p(266), Draw.p(62), d.battery, ink, 0xC9BB9C);                           // batería camuflada
+        glyphTimeB(dc, Draw.p(195), Draw.p(104), d.time, -2, true);                                    // papeles que saltan
+        small(dc, Draw.p(98), Draw.p(252), [[d.cond, d.temp]], [ink, ink, 0xE2AE2E], 18);              // mancha azafrán
+        small(dc, Draw.p(98), Draw.p(278), [[:drop, d.precip]], [0x5A4216, 0x5A4216, 0xE2AE2E], 12);
+        Draw.iconSteps(dc, Draw.p(187), Draw.p(242), Draw.p(16), soft);                                // tira: pasos
+        Draw.text(dc, Draw.p(195), Draw.p(262), d.stepsText(), fSmall, ink, c);
+        var bx = Draw.p(165);
+        var bw = Draw.p(60);
+        var bh = Draw.p(2) < 1 ? 1 : Draw.p(2);
         var f = d.goal > 0 ? d.steps.toFloat() / d.goal : 0.0;
         if (f > 1) { f = 1.0; }
-        dc.setColor(0xD9CEB8, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(bx, Draw.p(288), bw, bh);
-        dc.setColor(0xD23A22, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(bx, Draw.p(288), (bw * f).toNumber(), bh);
-        // círculo azul noche: luna
-        moonImg(dc, Draw.p(292), Draw.p(256));
-        Draw.text(dc, Draw.p(292), Draw.p(280), moonPct(d), fSmall, 0xEDE6D6, c);
-        // cinta negra: amanecer y atardecer
-        small(dc, Draw.p(195), Draw.p(320), [[:sunrise, d.sunrise], [:sunset, d.sunset]], [0xF3EEE4, 0xE8B227, 0x151413], 14);
+        dc.setColor(0xD3C4A4, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(bx, Draw.p(285), bw, bh);
+        dc.setColor(0xC0392B, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(bx, Draw.p(285), (bw * f).toNumber(), bh);
+        moonImg(dc, Draw.p(292), Draw.p(258));                                                         // mancha azul noche
+        Draw.text(dc, Draw.p(292), Draw.p(280), moonPct(d), fMini, 0xD9D1BF, c);
+        small(dc, Draw.p(195), Draw.p(319), [[:sunrise, d.sunrise], [:sunset, d.sunset]], [0xE6DCC8, 0xD9A22C, 0x1E1B18], 12);
     }
 
     // ------------------------------------------------------------ CIELO PINTADO

@@ -285,11 +285,11 @@ LABEL = (56, 88, 334, 294)
 
 
 COLLAGE_HOLDERS = {   # piezas de papel para los datos (diseño a 390): tipo, geometría, color, giro
-    "temp": ("circle", 98, 266, 42, "#E8B227", 0),
-    "moon": ("circle", 292, 266, 42, "#1C2B4A", 0),
-    "steps": ("rect", 146, 234, 244, 300, "#F3EEE4", -3.0),
-    "sun": ("rect", 112, 312, 278, 340, "#151413", 1.5),
-    "date": ("rect", 76, 56, 314, 84, "#EFE6CC", -1.0),
+    "temp": ("circle", 98, 266, 40, "#E2AE2E", 0),
+    "moon": ("circle", 292, 266, 40, "#1C2B4A", 0),
+    "steps": ("rect", 148, 236, 242, 298, "#EADCC0", -3.0),
+    "sun": ("rect", 114, 312, 276, 338, "#1E1B18", 1.5),
+    "date": ("rect", 90, 56, 300, 84, "#E6D9BC", -1.0),
 }
 
 
@@ -300,23 +300,24 @@ def paper_piece(img, kind, geom, color, seed, shadow=0.32, angle=0.0):
         corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
         pts = [(cx + (x - cx) * np.cos(a) - (y - cy) * np.sin(a), cy + (x - cx) * np.sin(a) + (y - cy) * np.cos(a))
                for x, y in corners]
-        sh = poly_mask([(x + 2, y + 3) for x, y in pts], blur=3)
+        sh = poly_mask([(x + 1.5, y + 2) for x, y in pts], blur=3)
         m = poly_mask(pts, blur=0.6)
-        img = img * (1 - shadow * sh)[..., None]
-        paper = mottle(linen(solid(color), 0.05, seed + 2), 0.05, seed + 3, 3)
-        return over(img, paper, m)
+        m = smooth(0.35, 0.65, m + 0.25 * (fbm(14, seed + 5, 3) - 0.5))          # borde pintado irregular
+        img = img * (1 - shadow * 0.5 * sh)[..., None]
+        return over(img, painted_fill(color, seed + 2), m)
     if kind == "circle":
         cx, cy, r = geom
-        pts = [(cx + np.cos(q) * r * (1 + 0.015 * np.sin(q * 7 + seed)), cy + np.sin(q) * r) for q in np.linspace(0, 2 * np.pi, 72)[:-1]]
+        pts = [(cx + np.cos(q) * r * (1 + 0.035 * np.sin(q * 5 + seed) + 0.02 * np.sin(q * 11)), cy + np.sin(q) * r * (1 + 0.03 * np.cos(q * 4 + seed)))
+               for q in np.linspace(0, 2 * np.pi, 72)[:-1]]
         sh = poly_mask([(x + 2, y + 3) for x, y in pts], blur=3)
         m = poly_mask(pts, blur=0.5)
     else:
         x0, y0, x1, y1 = geom
         sh = rect_mask(x0 + 2, y0 + 3, x1 + 2, y1 + 3, seed, rough=2.5, soft=3)
         m = rect_mask(x0, y0, x1, y1, seed + 1, rough=2.2, soft=0.7)
-    img = img * (1 - shadow * sh)[..., None]
-    paper = mottle(linen(solid(color), 0.05, seed + 2), 0.05, seed + 3, 3)
-    return over(img, paper, m)
+    m = smooth(0.35, 0.65, m + 0.25 * (fbm(14, seed + 5, 3) - 0.5))
+    img = img * (1 - shadow * 0.5 * sh)[..., None]
+    return over(img, painted_fill(color, seed + 2), m)
 
 
 def leaf(img, x, y, size, angle, color, seed):

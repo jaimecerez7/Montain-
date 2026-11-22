@@ -9,6 +9,9 @@ on:
       - ".github/workflows/build-garmin.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write   # para publicar los archivos en la página de descarga (release "beta")
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -112,3 +115,12 @@ jobs:
             build/${{ matrix.app }}-fr165.prg
             build/${{ matrix.app }}-fr165m.prg
           if-no-files-found: error
+
+      - name: Publicar en la página de descarga (release "beta")
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view beta >/dev/null 2>&1 || \
+            gh release create beta --target "$GITHUB_SHA" --prerelease --title "Versión beta" \
+              --notes "Archivos más recientes. Esferas.iq, HorizonteCimas.iq y RadarVuelos.iq se suben como Beta App en apps.garmin.com/developer; los .prg son para instalar por USB."
+          gh release upload beta "build/$APP_DIR.iq" "build/$APP_DIR-fr165.prg" "build/$APP_DIR-fr165m.prg" --clobber

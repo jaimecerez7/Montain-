@@ -192,6 +192,9 @@ class PeakModel {
     // Carga las cimas precargadas en 40 km alrededor de la posición actual.
     // Solo se leen las teselas que tocan el círculo; la distancia de filtrado es
     // equirrectangular (barata) y la selección no ordena todo el conjunto.
+    // Sin comprobación de tipos: el compilador intenta deducir el tipo exacto de cada
+    // JSON de cumbres y se queda sin memoria. Los datos se validan aquí a mano.
+    (:typecheck(false))
     function loadOffline() as Boolean {
         if (lat == null || !inCoverage(lat, lon)) { return false; }
         var t0 = System.getTimer();

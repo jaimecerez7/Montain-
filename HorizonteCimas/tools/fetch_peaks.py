@@ -125,11 +125,11 @@ module PeakTiles {{
     const COLS = {COLS};
 
     // Identificador del recurso JSON de la tesela (fila, columna), o null si está vacía.
-    function tile(r as Number, c as Number) {{
+    function tile(r as Number, c as Number) as ResourceId or Null {{
         if (r < 0 || r >= ROWS || c < 0 || c >= COLS) {{ return null; }}
         var grid = [
             {(","+chr(10)+"            ").join(grid)}
-        ];
+        ] as Array<Array<ResourceId or Null>>;
         return grid[r][c];
     }}
 }}

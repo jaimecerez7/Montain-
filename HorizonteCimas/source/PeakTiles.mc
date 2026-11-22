@@ -17,13 +17,13 @@ module PeakTiles {
     const COLS = 4;
 
     // Identificador del recurso JSON de la tesela (fila, columna), o null si está vacía.
-    function tile(r as Number, c as Number) {
+    function tile(r as Number, c as Number) as ResourceId or Null {
         if (r < 0 || r >= ROWS || c < 0 || c >= COLS) { return null; }
         var grid = [
             [Rez.JsonData.PeaksR0C0, Rez.JsonData.PeaksR0C1, Rez.JsonData.PeaksR0C2, Rez.JsonData.PeaksR0C3],
             [Rez.JsonData.PeaksR1C0, Rez.JsonData.PeaksR1C1, Rez.JsonData.PeaksR1C2, Rez.JsonData.PeaksR1C3],
             [Rez.JsonData.PeaksR2C0, Rez.JsonData.PeaksR2C1, Rez.JsonData.PeaksR2C2, null]
-        ];
+        ] as Array<Array<ResourceId or Null>>;
         return grid[r][c];
     }
 }

@@ -110,15 +110,20 @@ class ProjectTests(unittest.TestCase):
         total, names = 0, []
         for e in xml.findall("jsonData"):
             doc = json.loads((ROOT / "resources/peaks" / e.get("filename")).read_text())
-            self.assertEqual(len(doc["p"]), 3 * len(doc["n"]))
+            self.assertIsInstance(doc["n"], str)        # cadenas: tipos triviales para el compilador
+            self.assertIsInstance(doc["p"], str)
+            self.assertEqual(len(doc["p"]), 21 * doc["k"])
             r, c = map(int, re.match(r"PeaksR(\d+)C(\d+)", e.get("id")).groups())
-            for i in range(len(doc["n"])):
-                lat, lon, ele = doc["p"][3 * i] / 1e5, doc["p"][3 * i + 1] / 1e5, doc["p"][3 * i + 2]
-                self.assertTrue(40.5 + r * 0.5 <= lat < 40.5 + (r + 1) * 0.5)
-                self.assertTrue(-4.75 + c * 0.5 <= lon < -4.75 + (c + 1) * 0.5)
-                self.assertTrue(-100 <= ele <= 5000)
-            total += len(doc["n"])
-            names += doc["n"]
+            for i in range(doc["k"]):
+                q = doc["p"][21 * i:21 * i + 21]
+                lat = 40.5 + r * 0.5 + int(q[0:5]) / 1e5
+                lon = -4.75 + c * 0.5 + int(q[5:10]) / 1e5
+                ele, st, ln = int(q[10:14]), int(q[14:19]), int(q[19:21])
+                self.assertTrue(40.5 + r * 0.5 <= lat < 40.5 + (r + 1) * 0.5 + 1e-6)
+                self.assertTrue(-4.75 + c * 0.5 <= lon < -4.75 + (c + 1) * 0.5 + 1e-6)
+                self.assertTrue(0 <= ele <= 5000 and 0 < ln <= 60)
+                names.append(doc["n"][st:st + ln])
+            total += doc["k"]
         self.assertEqual(total, summary["count"])
         self.assertIn("Peñalara", names)
         mc = (ROOT / "source/PeakTiles.mc").read_text()

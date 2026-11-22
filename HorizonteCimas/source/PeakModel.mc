@@ -217,21 +217,31 @@ class PeakModel {
                 try { data = WatchUi.loadResource(id); } catch (ex) { data = null; }
                 if (!(data instanceof Dictionary)) { continue; }
                 tiles++;
+                // {"k": N, "n": nombres seguidos, "p": registros de 21 caracteres}
+                // registro: dlat(5) dlon(5) ele(4) inicio(5) largo(2); dlat/dlon en 1e-5° desde la esquina SO
                 var names = data["n"];
-                var p = data["p"];
-                if (!(names instanceof Array) || !(p instanceof Array) || p.size() < names.size() * 3) { continue; }
-                for (var i = 0; i < names.size(); i++) {
-                    var pla = p[3 * i] / 100000.0d;
-                    var plo = p[3 * i + 1] / 100000.0d;
+                var recs = data["p"];
+                var count = data["k"];
+                if (!(names instanceof String) || !(recs instanceof String) || !(count instanceof Number)
+                    || recs.length() < count * 21) { continue; }
+                var lat0 = PeakTiles.LAT0 + r * PeakTiles.STEP;
+                var lon0 = PeakTiles.LON0 + c * PeakTiles.STEP;
+                for (var i = 0; i < count; i++) {
+                    var o = i * 21;
+                    var pla = lat0 + recs.substring(o, o + 5).toNumber() / 100000.0d;
+                    var plo = lon0 + recs.substring(o + 5, o + 10).toNumber() / 100000.0d;
                     var dy = (pla - lat) * M_PER_DEG_LAT;
                     var dx = (plo - lon) * kx;
                     var d = Math.sqrt(dx * dx + dy * dy);
                     if (d < 60 || d > reach) { continue; }
-                    var peak = [names[i], pla, plo, p[3 * i + 2].toFloat()];
+                    var ele = recs.substring(o + 10, o + 14).toNumber().toFloat();
+                    var st = recs.substring(o + 14, o + 19).toNumber();
+                    var nm = names.substring(st, st + recs.substring(o + 19, o + 21).toNumber());
+                    var peak = [nm, pla, plo, ele];
                     if (d <= NEAR_RADIUS_M) {
                         near.add([d, peak]);
                     } else {
-                        far.add([GeoMath.elevationAngle(peak[3] - alt, d), peak]);
+                        far.add([GeoMath.elevationAngle(ele - alt, d), peak]);
                     }
                 }
                 data = null;   // liberar la tesela antes de leer la siguiente

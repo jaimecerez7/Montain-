@@ -5,7 +5,7 @@
 La app incluye **las cumbres reales de OpenStreetMap** de la provincia de Segovia y la Sierra de Guadarrama, incluidas las vertientes de Madrid y Ávila (40,55–41,62° N, 4,75–3,15° O). Cada cumbre tiene nombre, latitud, longitud y elevación; las que no tienen elevación en OSM no se incluyen.
 
 - **Al abrir la app**, la primera posición (aunque sea la última conocida) basta para mostrar las cimas. **No hace falta Internet ni móvil.**
-- **Empaquetado:** recursos JSON de Connect IQ (`resources/peaks/`) en teselas de 0,5° × 0,5°, con un formato plano (`{"n": [nombres], "p": [lat·1e5, lon·1e5, ele, …]}`) que crea pocos objetos en memoria.
+- **Empaquetado:** recursos JSON de Connect IQ (`resources/peaks/`) en teselas de 0,5° × 0,5°. Cada tesela son dos cadenas: los nombres seguidos y registros de ancho fijo de 21 caracteres (latitud, longitud, elevación y posición del nombre). Son tipos triviales para el compilador y crean muy pocos objetos en el reloj: solo se generan los nombres de las cimas elegidas.
 - **Carga (optimizada para el FR165):**
   - Solo se leen las teselas que tocan el círculo de 40 km, y se liberan una a una.
   - El primer filtro de distancia es equirrectangular, más barato.

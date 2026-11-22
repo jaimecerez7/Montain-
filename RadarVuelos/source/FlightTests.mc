@@ -72,3 +72,19 @@ function textHelpers(logger as Test.Logger) as Boolean {
     Test.assert(model.adsbUrl(40.4712, -3.5601, 25).equals("https://api.adsb.lol/v2/point/40.47/-3.56/25"));
     return true;
 }
+
+(:test)
+function overheadAlertOnce(logger as Test.Logger) as Boolean {
+    var model = new FlightModel();
+    model.overheadAlerts = true;
+    model.lat = 40.0;
+    model.lon = -3.0;
+    // Avión a 3000 m de altura casi en la vertical: elevación > 60°.
+    model.aircraft = [["abc", "IBE1", 40.001, -3.0, 3000.0, 0.0, 0.0, "", "", 0]];
+    model.updateGeometry(0);
+    Test.assert(model.geom[0][2] > 60);
+    Test.assert(model.alerted.size() == 1);
+    model.updateGeometry(500);
+    Test.assert(model.alerted.size() == 1);   // no repite el aviso
+    return true;
+}

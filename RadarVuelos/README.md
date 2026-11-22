@@ -1,4 +1,4 @@
-# Radar Vuelos 0.1 — Garmin Connect IQ (Monkey C)
+# Radar Vuelos 0.2 — Garmin Connect IQ (Monkey C)
 
 Apunta el reloj hacia un avión y descubre qué vuelo es: **indicativo, aerolínea, tipo de avión, matrícula, altitud, distancia y cuántos grados sobre el horizonte** tienes que mirar.
 
@@ -9,6 +9,18 @@ Apunta el reloj hacia un avión y descubre qué vuelo es: **indicativo, aerolín
 3. **Movimiento suave:** entre descargas, cada avión avanza en línea recta con su velocidad y su rumbo. La estimación se limita a 60 s, así que los aviones se mueven en tiempo real en la pantalla.
 4. **Hacia dónde apuntas:** la brújula del reloj orienta el radar para que **arriba sea la dirección de tu brazo**. La cuña sombreada marca ±20°. El avión seleccionado es el más centrado en la cuña, con desempate a favor del más cercano.
 5. **Elevación:** a partir de la altitud del avión, la distancia y la curvatura de la Tierra se calcula a cuántos grados sobre el horizonte está.
+
+## Aviones sobre tu cabeza
+
+Si un avión está a más de 60° sobre el horizonte, queda **seleccionado automáticamente**, apuntes donde apuntes. Muy cerca de la vertical, su dirección cambia demasiado rápido para depender de la cuña. La línea gris indica «Sobre tu cabeza», el ángulo pasa a «cénit» por encima de 85° y el reloj **vibra una vez** con cada avión que cruza por encima.
+
+## Batería
+
+- **GPS:** funciona en continuo solo hasta el primer fijo bueno. Después toma una lectura cada 2 minutos. Para aviones a decenas de km, unos cientos de metros de error no cambian nada, y el GPS continuo es lo que más gasta.
+- **Descargas:** se hacen cada 10 s si hay aviones cerca y cada 30 s si no hay ninguno. Tras un error, cada 20 s.
+- **Memoria:** se guardan como máximo 40 aviones. Si la respuesta es demasiado grande, el radio se reduce automáticamente.
+
+Todo esto no se ha medido en un reloj real, porque no hay simulador. El consumo real queda por comprobar.
 
 ## Pantalla
 

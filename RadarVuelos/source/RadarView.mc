@@ -19,6 +19,7 @@ class RadarView extends WatchUi.View {
     const MID = 0x5BC0EB;       // < 6000 m
     const HIGH = 0xE8F4FA;      // crucero
     const SELECT_HALF_DEG = 20.0;
+    const OVERHEAD_DEG = 60.0;  // a partir de aquí el avión está «sobre tu cabeza»
     const TICK_MS = 500;
 
     var model as FlightModel;
@@ -121,8 +122,11 @@ class RadarView extends WatchUi.View {
             var rel = GeoMath.diff(item[0], hd);
             var absRel = rel < 0 ? -rel : rel;
             // El seleccionado: el más alineado con la dirección a la que apuntas.
-            if (absRel <= SELECT_HALF_DEG && absRel + item[1] / 20000.0 < best) {
-                best = absRel + item[1] / 20000.0;
+            // Un avión sobre tu cabeza gana siempre: su rumbo cambia demasiado
+            // rápido para depender de la cuña (y apuntar hacia arriba no orienta).
+            var score = item[2] >= OVERHEAD_DEG ? -item[2] / 100.0 : absRel + item[1] / 20000.0;
+            if ((item[2] >= OVERHEAD_DEG || absRel <= SELECT_HALF_DEG) && score < best) {
+                best = score;
                 selected = item;
             }
         }
@@ -140,6 +144,9 @@ class RadarView extends WatchUi.View {
         var info = "";
         if (model.status != null) {
             info = model.status;
+        } else if (selected != null && selected[2] >= OVERHEAD_DEG) {
+            info = "Sobre tu cabeza" + (selected[4][7].length() > 0
+                ? " · " + Airlines.typeName(selected[4][7]) : "");
         } else if (selected != null && selected[4][7].length() > 0) {
             info = Airlines.typeName(selected[4][7])
                 + (selected[4][8].length() > 0 ? " · " + selected[4][8] : "");
@@ -244,7 +251,8 @@ class RadarView extends WatchUi.View {
             return;
         }
         var elev = item[2] < 0 ? 0 : item[2].toNumber();
-        drawStats(dc, w, h, cx, y2, fmtAlt(item[3]), fmtDist(item[1]), elev.toString() + "°");
+        drawStats(dc, w, h, cx, y2, fmtAlt(item[3]), fmtDist(item[1]),
+            elev >= 85 ? "cénit" : elev.toString() + "°");
     }
 
     // ▲ altitud   ↔ distancia   ↗ grados sobre el horizonte (iconos dibujados, no glifos).

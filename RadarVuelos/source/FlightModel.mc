@@ -1,3 +1,4 @@
+import Toybox.Attention;
 import Toybox.Communications;
 import Toybox.Lang;
 import Toybox.Math;
@@ -10,6 +11,9 @@ import Toybox.WatchUi;
 // geom:     [rumbo_desde_ti, distancia_m, elevacion_grados, altitud_m, fila_aircraft]
 class FlightModel {
     const REFRESH_MS = 10000;
+    const REFRESH_EMPTY_MS = 30000;   // sin aviones cerca: preguntar menos a menudo
+    const OVERHEAD_DEG = 60.0;
+    const MAX_ALERTED = 20;
     const RETRY_MS = 20000;
     const MAX_AIRCRAFT = 40;
     const MAX_EXTRAPOLATE_S = 60.0;
@@ -35,6 +39,8 @@ class FlightModel {
     var lastSuccess = null;
     var useCompass = true;
     var lockedHex = null;
+    var overheadAlerts = true;
+    var alerted as Array<String> = [];   // aviones que ya avisaron al pasar por encima
 
     function initialize() {}
 
@@ -54,7 +60,7 @@ class FlightModel {
     // Se llama en cada fotograma: lanza descargas periódicas y mueve los aviones.
     function tick(now as Number) as Void {
         if (lat != null && !fetching) {
-            var wait = failures > 0 ? RETRY_MS : REFRESH_MS;
+            var wait = failures > 0 ? RETRY_MS : (aircraft.size() == 0 ? REFRESH_EMPTY_MS : REFRESH_MS);
             if (lastAttempt == null || now < lastAttempt || now - lastAttempt >= wait) {
                 fetch(now);
             }
@@ -248,10 +254,21 @@ class FlightModel {
             var row = aircraft[i];
             var p = extrapolate(row, now);
             var d = GeoMath.distance(lat, lon, p[0], p[1]);
-            g.add([GeoMath.bearing(lat, lon, p[0], p[1]), d,
-                GeoMath.elevationAngle(row[4] - alt, d), row[4], row]);
+            var elev = GeoMath.elevationAngle(row[4] - alt, d);
+            g.add([GeoMath.bearing(lat, lon, p[0], p[1]), d, elev, row[4], row]);
+            if (elev >= OVERHEAD_DEG) { alertOverhead(row[0]); }
         }
         geom = g;
+    }
+
+    // Vibración corta la primera vez que cada avión pasa por encima.
+    function alertOverhead(hex as String) as Void {
+        if (!overheadAlerts || alerted.indexOf(hex) >= 0) { return; }
+        alerted.add(hex);
+        if (alerted.size() > MAX_ALERTED) { alerted = alerted.slice(1, null); }
+        if (Attention has :vibrate) {
+            Attention.vibrate([new Attention.VibeProfile(60, 250)]);
+        }
     }
 
     function secondsSinceUpdate(now as Number) {

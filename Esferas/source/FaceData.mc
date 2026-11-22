@@ -36,7 +36,9 @@ class FaceData {
     var peak = 30.0;           // elevación máxima del sol hoy (grados)
     var moonIdx = 0;           // fase de la luna en 8 pasos (0 nueva, 4 llena)
     var skyState = 2;          // 0 noche, 1 alba, 2 día, 3 hora dorada, 4 ocaso
-    var dayIndex = 0;          // día del año (rota el collage cada día)
+    var dayIndex = 0;
+    var km = "--";             // distancia del día ("8,64")
+    var hr = "--";             // pulsaciones actuales          // día del año (rota el collage cada día)
     var nextSunrise = false;   // true: el siguiente evento es el amanecer
 
     var curveKey = -1;         // día del año con el que se calculó sunCurve
@@ -115,6 +117,23 @@ class FaceData {
     function updateActivity() as Void {
         var info = ActivityMonitor.getInfo();
         steps = info.steps == null ? 0 : info.steps;
+        if (info.distance != null) {
+            var ds = System.getDeviceSettings();
+            var units = ds.distanceUnits == System.UNIT_STATUTE ? 160934.4 : 100000.0;
+            var hund = Math.round(info.distance / units * 100).toNumber();
+            km = (hund / 100).toString() + "," + (hund % 100).format("%02d");
+        }
+        var bpm = null;
+        try {
+            var ai = Activity.getActivityInfo();
+            if (ai != null) { bpm = ai.currentHeartRate; }
+            if (bpm == null && (ActivityMonitor has :getHeartRateHistory)) {
+                var it = ActivityMonitor.getHeartRateHistory(1, true);
+                var smp = it.next();
+                if (smp != null && smp.heartRate != ActivityMonitor.INVALID_HR_SAMPLE) { bpm = smp.heartRate; }
+            }
+        } catch (ex) {}
+        hr = bpm == null ? "--" : bpm.toString();
         goal = info.stepGoal == null || info.stepGoal <= 0 ? 10000 : info.stepGoal;
         var h = ActivityMonitor.getHistory();
         var list = [] as Array<Number>;

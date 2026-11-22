@@ -11,6 +11,7 @@ const S = 390;
 const F = {
   time:  { size: 124, weight: 250, track: 0 },
   timem: { size: 88,  weight: 280, track: 0 },
+  timeb: { size: 124, weight: 560, track: 0 },
   data:  { size: 28,  weight: 340, track: 1 },
   label: { size: 19,  weight: 460, track: 5 },
   small: { size: 21,  weight: 380, track: 1 },
@@ -21,7 +22,8 @@ const P = v => Math.round(v * k);
 const IMG = {};
 const GLYPH_STYLES = ['cv', 'ca', 'bl', 're', 'co', 'ba'];
 window.loadArt = () => Promise.all([
-  ...['bg_cinta3d_verde','bg_cinta3d_ambar','bg_bloques','bg_reticula','bg_collage','bg_collage2','bg_collage3','bg_geometria','grid','sun',
+  ...['bg_cinta3d_verde','bg_cinta3d_ambar','bg_bloques','bg_reticula','bg_collage','bg_collage2','bg_collage3','bg_geometria','bg_ola','grid','sun',
+      ...[...Array(8).keys()].map(i => 'moonl' + i),
       'bg_cielo_noche','bg_cielo_alba','bg_cielo_dia','bg_cielo_dorada','bg_cielo_ocaso',
       ...[...Array(8).keys()].map(i => 'moon' + i)].map(n => [n, '../../resources/paint/' + n + '.png']),
   ...GLYPH_STYLES.flatMap(g => [...Array(11).keys()].map(i => ['g' + g + i, '../../resources/glyphs/g' + g + i + '.png']))
@@ -206,6 +208,31 @@ function geometria(d){
   text(P(312), P(286), Math.round(d.moonIllum * 100) + '%', F.mini, '#D9D1BF');
 }
 
+// =================== OLA ===================
+// Dos pinceladas a sangre; la banda oscura pasa por detrás de la hora.
+function ola(d){
+  art('ola');
+  const cream = '#F4E6CF', ink = '#2A1A10', orange = '#E8601C';
+  const ml = IMG['moonl' + d.moonIdx];                                                 // luna grande
+  dc.drawImage(ml, P(300) - ml.width / 2, P(84) - ml.height / 2);
+  text(P(336), P(124), d.date, F.label, ink, 'r');                                     // fecha + guion
+  rect(P(306), P(148), P(30), Math.max(2, P(3)), orange);
+  const [hh, mm] = d.time.split(':');                                                  // horas negrita, minutos finos
+  const wh = textW(hh, F.timeb), wm = textW(mm, F.time), gap = P(6), x0 = P(166) - (wh + gap + wm) / 2;
+  text(x0, P(172), hh, F.timeb, cream, 'l');
+  text(x0 + wh + gap, P(172), mm, F.time, cream, 'l');
+  row(P(334), P(208), [['sunrise', d.sunrise]], cream, '#F0A96E', '#1A120C', 13, F.small);
+  row(P(334), P(232), [['sunset', d.sunset]], cream, '#F0A96E', '#1A120C', 13, F.small);
+  // actividad con regla
+  rect(P(92), P(298), Math.max(2, P(3)), P(74), cream);
+  [[d.km + ' km'], [fmtSteps(d.steps) + ' pasos'], [d.hr + ' ppm']].forEach((t, i) =>
+    text(P(104), P(300 + i * 25), t[0], F.small, cream, 'l'));
+  // batería con barra
+  text(P(318), P(316), d.battery + '%', F.small, cream, 'r');
+  rect(P(268), P(340), P(50), Math.max(2, P(3)), 'rgba(244,230,207,0.35)');
+  rect(P(268), P(340), P(50) * d.battery / 100, Math.max(2, P(3)), cream);
+}
+
 // =================== CIELO PINTADO ===================
 // El cielo cambia con la altura real del sol; el sol recorre su arco; la luna muestra su fase.
 function skyState(d){
@@ -260,7 +287,7 @@ window.render = (theme, d, size = 390) => {
   ({ cinta_verde: d => cinta(d, true), cinta_ambar: d => cinta(d, false), bloques, reticula, collage, aod, cielo,
      cielo_noche: d => cielo({...d, state: 'noche'}), cielo_alba: d => cielo({...d, state: 'alba'}),
      cielo_dia: d => cielo({...d, state: 'dia'}), cielo_dorada: d => cielo({...d, state: 'dorada'}),
-     cielo_ocaso: d => cielo({...d, state: 'ocaso'}), collage2: collage, collage3: collage, geometria })[theme](d);
+     cielo_ocaso: d => cielo({...d, state: 'ocaso'}), collage2: collage, collage3: collage, geometria, ola })[theme](d);
   dc.globalCompositeOperation = 'destination-in'; dc.beginPath(); dc.arc(size/2, size/2, size/2, 0, 7); dc.fill();
   dc.globalCompositeOperation = 'source-over';
 };

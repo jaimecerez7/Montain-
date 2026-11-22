@@ -5,6 +5,7 @@
     <bitmap id="BgCollage2" filename="bg_collage2.png" packingFormat="jpg"/>
     <bitmap id="BgCollage3" filename="bg_collage3.png" packingFormat="jpg"/>
     <bitmap id="BgGeometria" filename="bg_geometria.png" packingFormat="jpg"/>
+    <bitmap id="BgOla" filename="bg_ola.png" packingFormat="jpg"/>
     <bitmap id="BgCinta3dVerde" filename="bg_cinta3d_verde.png" packingFormat="jpg"/>
     <bitmap id="BgCinta3dAmbar" filename="bg_cinta3d_ambar.png" packingFormat="jpg"/>
     <bitmap id="BgCieloNoche" filename="bg_cielo_noche.png" packingFormat="jpg"/>
@@ -15,11 +16,19 @@
     <bitmap id="Grid" filename="grid.png"/>
     <bitmap id="Sun" filename="sun.png"/>
     <bitmap id="Moon0" filename="moon0.png"/>
+    <bitmap id="MoonL0" filename="moonl0.png"/>
     <bitmap id="Moon1" filename="moon1.png"/>
+    <bitmap id="MoonL1" filename="moonl1.png"/>
     <bitmap id="Moon2" filename="moon2.png"/>
+    <bitmap id="MoonL2" filename="moonl2.png"/>
     <bitmap id="Moon3" filename="moon3.png"/>
+    <bitmap id="MoonL3" filename="moonl3.png"/>
     <bitmap id="Moon4" filename="moon4.png"/>
+    <bitmap id="MoonL4" filename="moonl4.png"/>
     <bitmap id="Moon5" filename="moon5.png"/>
+    <bitmap id="MoonL5" filename="moonl5.png"/>
     <bitmap id="Moon6" filename="moon6.png"/>
+    <bitmap id="MoonL6" filename="moonl6.png"/>
     <bitmap id="Moon7" filename="moon7.png"/>
+    <bitmap id="MoonL7" filename="moonl7.png"/>
 </drawables>

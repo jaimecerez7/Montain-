@@ -12,6 +12,7 @@ class Themes {
     const COLLAGE = 4;
     const CIELO = 5;
     const GEOMETRIA = 6;
+    const OLA = 7;
     // por estado del cielo: puntos del arco, montaña cercana (fondo de iconos)
     const SKY_DOT = [0x8C93B5, 0xF2D3C8, 0xDCEBF5, 0xFCE2B8, 0xE9B4A6];
     const SKY_NEAR = [0x0C1224, 0x383350, 0x2C4351, 0x3B2A30, 0x1C172E];
@@ -22,6 +23,8 @@ class Themes {
     var fLabel;
     var fSmall;
     var fMini;
+    var fTimeB;
+    var moonL = null;    // luna grande pintada (Ola)
     var bg = null;       // obra del estilo activo
     var grid = null;     // retícula estampada completa (Retícula)
     var glyphs as Array = [];   // cifras pintadas del estilo activo: 0-9 y ':' (índice 10)
@@ -38,6 +41,7 @@ class Themes {
         fLabel = fonts[3];
         fSmall = fonts[4];
         fMini = fonts[5];
+        fTimeB = fonts[6];
     }
 
     function resetCache() as Void {}
@@ -51,6 +55,7 @@ class Themes {
         else if (theme == COLLAGE) { collage(dc, d); }
         else if (theme == CIELO) { cielo(dc, d); }
         else if (theme == GEOMETRIA) { geometria(dc, d); }
+        else if (theme == OLA) { ola(dc, d); }
         else { cinta(dc, d, theme == CINTA_VERDE); }
     }
 
@@ -307,6 +312,46 @@ class Themes {
         // luna (negro)
         moonImg(dc, Draw.p(312), Draw.p(264));
         Draw.text(dc, Draw.p(312), Draw.p(286), moonPct(d), fMini, 0xD9D1BF, c);
+    }
+
+    // ------------------------------------------------------------ OLA
+    // Dos pinceladas a sangre; la banda oscura pasa por detrás de la hora.
+    function ola(dc as Graphics.Dc, d as FaceData) as Void {
+        background(dc, 0x2A1D15);
+        var cream = 0xF4E6CF;
+        var ink = 0x2A1A10;
+        var l = Graphics.TEXT_JUSTIFY_LEFT;
+        var r = Graphics.TEXT_JUSTIFY_RIGHT;
+        var ml = moonL;
+        if (ml != null) { dc.drawBitmap(Draw.p(300) - ml.getWidth() / 2, Draw.p(84) - ml.getHeight() / 2, ml); }
+        Draw.text(dc, Draw.p(336), Draw.p(124), d.date, fLabel, ink, r);
+        var th = Draw.p(3) < 2 ? 2 : Draw.p(3);
+        dc.setColor(0xE8601C, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(Draw.p(306), Draw.p(148), Draw.p(30), th);
+        // horas en negrita y minutos finos
+        var colon = d.time.find(":");
+        var hh = colon == null ? d.time : d.time.substring(0, colon);
+        var mm = colon == null ? "" : d.time.substring(colon + 1, d.time.length());
+        var wh = dc.getTextWidthInPixels(hh, fTimeB);
+        var wm = dc.getTextWidthInPixels(mm, fTime);
+        var gap = Draw.p(6);
+        var x0 = Draw.p(166) - (wh + gap + wm) / 2;
+        Draw.text(dc, x0, Draw.p(172), hh, fTimeB, cream, l);
+        Draw.text(dc, x0 + wh + gap, Draw.p(172), mm, fTime, cream, l);
+        small(dc, Draw.p(334), Draw.p(208), [[:sunrise, d.sunrise]], [cream, 0xF0A96E, 0x1A120C], 13);
+        small(dc, Draw.p(334), Draw.p(232), [[:sunset, d.sunset]], [cream, 0xF0A96E, 0x1A120C], 13);
+        // actividad con regla
+        dc.setColor(cream, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(Draw.p(92), Draw.p(298), th, Draw.p(74));
+        Draw.text(dc, Draw.p(104), Draw.p(300), d.km + " km", fSmall, cream, l);
+        Draw.text(dc, Draw.p(104), Draw.p(325), d.stepsText() + " pasos", fSmall, cream, l);
+        Draw.text(dc, Draw.p(104), Draw.p(350), d.hr + " ppm", fSmall, cream, l);
+        // batería con barra
+        Draw.text(dc, Draw.p(318), Draw.p(316), pct(d.battery), fSmall, cream, r);
+        dc.setColor(0x8C6A55, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(Draw.p(268), Draw.p(340), Draw.p(50), th);
+        dc.setColor(cream, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(Draw.p(268), Draw.p(340), (Draw.p(50) * d.battery / 100.0).toNumber(), th);
     }
 
     // ------------------------------------------------------------ CIELO PINTADO

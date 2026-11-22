@@ -4,5 +4,6 @@
     <font id="Data" filename="data.fnt" antialias="true"/>
     <font id="Label" filename="label.fnt" antialias="true"/>
     <font id="Small" filename="small.fnt" antialias="true"/>
+    <font id="Timeb" filename="timeb.fnt" antialias="true"/>
     <font id="Mini" filename="mini.fnt" antialias="true"/>
 </fonts>

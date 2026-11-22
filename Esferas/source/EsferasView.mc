@@ -26,14 +26,15 @@ class EsferasView extends WatchUi.WatchFace {
     function loadSettings() as Void {
         var t = null;
         try { t = Application.Properties.getValue("Theme"); } catch (ex) {}
-        theme = t instanceof Number && t >= 0 && t <= 6 ? t : 2;
+        theme = t instanceof Number && t >= 0 && t <= 7 ? t : 7;
         loadArt();
     }
 
     function onLayout(dc as Graphics.Dc) as Void {
         themes = new Themes([WatchUi.loadResource(Rez.Fonts.Time), WatchUi.loadResource(Rez.Fonts.Timem),
             WatchUi.loadResource(Rez.Fonts.Data), WatchUi.loadResource(Rez.Fonts.Label),
-            WatchUi.loadResource(Rez.Fonts.Small), WatchUi.loadResource(Rez.Fonts.Mini)]);
+            WatchUi.loadResource(Rez.Fonts.Small), WatchUi.loadResource(Rez.Fonts.Mini),
+            WatchUi.loadResource(Rez.Fonts.Timeb)]);
         loadArt();
     }
 
@@ -55,7 +56,7 @@ class EsferasView extends WatchUi.WatchFace {
             }
             loadedCollage = -1;
             var ids = [Rez.Drawables.BgCinta3dVerde, Rez.Drawables.BgCinta3dAmbar, Rez.Drawables.BgBloques,
-                Rez.Drawables.BgReticula, null, null, Rez.Drawables.BgGeometria];
+                Rez.Drawables.BgReticula, null, null, Rez.Drawables.BgGeometria, Rez.Drawables.BgOla];
             if (theme != 4) { t.bg = WatchUi.loadResource(ids[theme]); }
             if (theme == 3) { t.grid = WatchUi.loadResource(Rez.Drawables.Grid); }
             var sets = [
@@ -78,6 +79,8 @@ class EsferasView extends WatchUi.WatchFace {
                  Rez.Drawables.GlyphBa4, Rez.Drawables.GlyphBa5, Rez.Drawables.GlyphBa6, Rez.Drawables.GlyphBa7,
                  Rez.Drawables.GlyphBa8, Rez.Drawables.GlyphBa9, Rez.Drawables.GlyphBa10]
             ];
+            t.moonL = null;
+            if (theme == 7) { return; }   // Ola no usa cifras pintadas
             var set = theme == 6 ? 5 : theme;
             var g = [];
             for (var i = 0; i < 11; i++) { g.add(WatchUi.loadResource(sets[set][i])); }
@@ -116,6 +119,17 @@ class EsferasView extends WatchUi.WatchFace {
         } catch (ex) {}
     }
 
+    var loadedMoonL = -1;
+    function moonLArt(t as Themes) as Void {
+        if (data.moonIdx == loadedMoonL && t.moonL != null) { return; }
+        try {
+            var ids = [Rez.Drawables.MoonL0, Rez.Drawables.MoonL1, Rez.Drawables.MoonL2, Rez.Drawables.MoonL3,
+                Rez.Drawables.MoonL4, Rez.Drawables.MoonL5, Rez.Drawables.MoonL6, Rez.Drawables.MoonL7];
+            t.moonL = WatchUi.loadResource(ids[data.moonIdx]);
+            loadedMoonL = data.moonIdx;
+        } catch (ex) {}
+    }
+
     function moonArt(t as Themes) as Void {
         try {
             if (data.moonIdx != loadedMoon) {
@@ -136,6 +150,7 @@ class EsferasView extends WatchUi.WatchFace {
         data.update();
         if (theme == 5) { cieloArt(t); }
         else if (theme == 2 || theme == 6) { moonArt(t); }
+        else if (theme == 7) { moonLArt(t); }
         else if (theme == 4) { collageArt(t); moonArt(t); }
         if (sleeping && burnIn) {
             t.aod(dc, data, System.getClockTime().min);

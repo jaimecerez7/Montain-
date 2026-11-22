@@ -506,9 +506,8 @@ def sun_sprite(side):
     return im.resize((max(1, round(size * s)), max(1, round(size * s))), Image.LANCZOS)
 
 
-def moon_sprite(side, phase):
+def moon_sprite(side, phase, r=12.0):
     """Luna pintada en una de 8 fases (0 = nueva, 4 = llena); la sombra deja ver el disco."""
-    r = 12.0
     size = int(np.ceil((2 * r + 4) * K))
     yy_, xx_ = np.mgrid[0:size, 0:size].astype(np.float32) / K
     x, y = xx_ - (r + 2), yy_ - (r + 2)
@@ -731,6 +730,18 @@ CINTA3D_PATH = [(-40, 330, 0), (30, 250, 60), (110, 222, -40), (176, 258, -90), 
                 (126, 238, 90), (214, 214, 20), (290, 250, -80), (312, 330, -30), (256, 366, 60), (236, 298, 90),
                 (300, 240, 20), (370, 252, -60), (440, 320, 0)]
 
+
+# ------------------------------------------------------------------ OLA (dos pinceladas a sangre)
+OLA_ORANGE = [(-80, 20), (20, 40), (120, 80), (150, 150), (110, 230), (120, 300), (200, 350), (300, 372), (460, 380)]
+OLA_DARK = [(470, 196), (380, 196), (300, 206), (210, 214), (130, 226), (60, 262), (-60, 310)]
+
+
+def bg_ola():
+    img = mottle(linen(solid("#EEDCBD"), 0.07, 140), 0.05, 141, 3)
+    img = ribbon(img, OLA_ORANGE, ("#6E2406", "#DB5317", "#FF9C4C"), 142, width=80.0, twists=0.06)
+    img = ribbon(img, OLA_DARK, ("#0E0A07", "#2A1D15", "#5E4231"), 143, width=80.0, twists=0.05)
+    return to_image(vignette(img, 0.08))
+
 ART = {
     "bloques": bg_bloques,
     "reticula": bg_reticula,
@@ -738,6 +749,7 @@ ART = {
     "collage2": lambda: bg_collage(191),
     "collage3": lambda: bg_collage(291),
     "geometria": bg_geometria,
+    "ola": bg_ola,
     "cinta3d_verde": lambda: bg_cinta3d("#D8D4C9", ("#0B2419", "#28533C", "#86AE92"), "#14201A", 77, CINTA3D_PATH),
     "cinta3d_ambar": lambda: bg_cinta3d("#EDEAE4", ("#8A3204", "#E07A12", "#FFD45E"), "#5A2A08", 87, CINTA3D_PATH),
     "cielo_noche": lambda: bg_cielo("noche"),
@@ -761,6 +773,7 @@ def main():
         sun_sprite(side).save(d / "sun.png")
         for ph in range(8):
             moon_sprite(side, ph).save(d / f"moon{ph}.png")
+            moon_sprite(side, ph, 23.0).save(d / f"moonl{ph}.png")
         xml = ["<drawables>"]
         for name in ART:
             rid = "Bg" + "".join(p.capitalize() for p in name.split("_"))
@@ -769,6 +782,7 @@ def main():
         xml.append('    <bitmap id="Sun" filename="sun.png"/>')
         for ph in range(8):
             xml.append(f'    <bitmap id="Moon{ph}" filename="moon{ph}.png"/>')
+            xml.append(f'    <bitmap id="MoonL{ph}" filename="moonl{ph}.png"/>')
         xml.append("</drawables>")
         (d / "paint.xml").write_text("\n".join(xml) + "\n")
     if preview:

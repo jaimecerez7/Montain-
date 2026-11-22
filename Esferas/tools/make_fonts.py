@@ -21,7 +21,8 @@ FONTS = [
     ("timem", 88, 280, "0123456789:", 0, True),
     ("data", 28, 340, "0123456789:°%.,-+/ kmhKMH" + UPPER, 1, True),
     ("label", 19, 460, "0123456789 ·" + UPPER, 5, False),
-    ("small", 21, 380, "0123456789:°%.,-+/ " + UPPER, 1, True),
+    ("small", 21, 380, "0123456789:°%.,-+/ " + UPPER + "abcdefghijklmnopqrstuvwxyzáéíóúñ", 1, True),
+    ("timeb", 124, 560, "0123456789:", 0, True),
     ("mini", 13, 520, "0123456789 ·%" + UPPER, 3, False),
 ]
 # Resolución (lado en px) → carpeta de recursos

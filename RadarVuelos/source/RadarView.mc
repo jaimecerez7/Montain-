@@ -89,8 +89,8 @@ class RadarView extends WatchUi.View {
         var hd = northUp ? 0.0 : heading;
 
         var topY = (h * 0.06).toNumber();
-        var cy = topY + fh + (h * 0.27).toNumber();
-        var radius = (h * 0.25).toNumber();
+        var cy = topY + fh + (h * 0.29).toNumber();
+        var radius = (h * 0.27).toNumber();
         var statusY = cy + radius + 4;
         var cardY = statusY + fh + 2;
 
@@ -178,8 +178,9 @@ class RadarView extends WatchUi.View {
         dc.drawText(nx, ny - fh / 2, Graphics.FONT_XTINY, "N", Graphics.TEXT_JUSTIFY_CENTER);
         // Escala del anillo exterior.
         dc.setColor(MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx + radius - 2, cy + 2, Graphics.FONT_XTINY,
-            rangesKm[rangeIndex].toString(), Graphics.TEXT_JUSTIFY_RIGHT);
+        // Alcance, junto al anillo exterior abajo a la derecha (fuera de la cuña).
+        dc.drawText(cx + (radius * 0.74).toNumber(), cy + (radius * 0.62).toNumber(), Graphics.FONT_XTINY,
+            rangesKm[rangeIndex].toString(), Graphics.TEXT_JUSTIFY_LEFT);
         // Tú, en el centro.
         dc.setColor(ICE, Graphics.COLOR_TRANSPARENT);
         dc.fillCircle(cx, cy, 3);
@@ -254,8 +255,9 @@ class RadarView extends WatchUi.View {
         var gap = (icon * 0.5).toNumber();
         var sep = icon + 2;
         var texts = [altText, distText, elevText];
+        var widths = [icon, (icon * 1.6).toNumber(), icon];
         var total = 0;
-        for (var i = 0; i < 3; i++) { total += icon + gap + dc.getTextWidthInPixels(texts[i], f); }
+        for (var i = 0; i < 3; i++) { total += widths[i] + gap + dc.getTextWidthInPixels(texts[i], f); }
         total += sep * 2;
         var width = usableWidth(w, h, y, fh);
         if (total > width) {
@@ -272,15 +274,16 @@ class RadarView extends WatchUi.View {
             if (i == 0) {
                 dc.fillPolygon([[x, mid + half], [x + half, mid - half], [x + icon, mid + half]]);
             } else if (i == 1) {
-                dc.fillRectangle(x + 2, mid - 1, icon - 4, 3);
+                var aw = widths[1];
+                dc.fillRectangle(x + half, mid - 1, aw - icon, 3);
                 dc.fillPolygon([[x, mid], [x + half, mid - half], [x + half, mid + half]]);
-                dc.fillPolygon([[x + icon, mid], [x + half, mid - half], [x + half, mid + half]]);
+                dc.fillPolygon([[x + aw, mid], [x + aw - half, mid - half], [x + aw - half, mid + half]]);
             } else {
                 // Ángulo: horizonte y línea de mira inclinada.
                 dc.drawLine(x, mid + half, x + icon, mid + half);
                 dc.drawLine(x, mid + half, x + icon, mid - half);
             }
-            x += icon + gap;
+            x += widths[i] + gap;
             dc.setColor(ICE, Graphics.COLOR_TRANSPARENT);
             dc.drawText(x, y, f, texts[i], Graphics.TEXT_JUSTIFY_LEFT);
             x += dc.getTextWidthInPixels(texts[i], f) + sep;

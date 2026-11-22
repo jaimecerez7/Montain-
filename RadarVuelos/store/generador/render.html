@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#000}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas><script>
+// Réplica del dibujo de RadarView.mc (mismas proporciones y colores).
+const C={sky:'#000',disk:'#07131E',grid:'#2A4757',wedge:'#10293A',muted:'#A4BDCC',ice:'#D9EFF6',accent:'#FFD17A',low:'#FF9F43',mid:'#5BC0EB',high:'#E8F4FA'};
+const XT='22px "Liberation Sans",sans-serif', TI='bold 28px "Liberation Sans",sans-serif', FH=25, TH=31, SEL=20;
+const AIRLINES={IBE:'Iberia',VLG:'Vueling',RYR:'Ryanair',AEA:'Air Europa',ANE:'Air Nostrum',EZY:'easyJet',BAW:'British Airways',UAE:'Emirates'};
+const TYPES={A333:'Airbus A330',A20N:'A320neo',B738:'Boeing 737',A321:'Airbus A321',B77W:'Boeing 777',CRJ9:'CRJ-900'};
+const diff=(a,b)=>{let d=a-b;while(d>180)d-=360;while(d<-180)d+=360;return d;}, rad=d=>d*Math.PI/180;
+function drawScene(s){
+  const cv=document.getElementById('c'),w=390,h=390;cv.width=w;cv.height=h;const dc=cv.getContext('2d');
+  dc.textBaseline='top';dc.textAlign='center';
+  const tw=(t,f)=>{dc.font=f;return dc.measureText(t).width;};
+  const usable=(top,lh=FH)=>{const r=w/2,a=top-h/2,b=top+lh-h/2,dy=Math.abs(a)>Math.abs(b)?a:b,q=r*r-dy*dy;return q<=0?0:2*Math.sqrt(q)*0.9;};
+  const fit=(t,f,W)=>{if(tw(t,f)<=W)return t;let n=t.length;while(n>0&&tw(t.substring(0,n)+'…',f)>W)n--;return n?t.substring(0,n)+'…':'';};
+  const text=(x,y,f,c,t,al='center')=>{dc.font=f;dc.fillStyle=c;dc.textAlign=al;dc.fillText(t,x,y);dc.textAlign='center';};
+  const poly=(pts,c)=>{dc.beginPath();dc.moveTo(...pts[0]);pts.slice(1).forEach(p=>dc.lineTo(...p));dc.closePath();dc.fillStyle=c;dc.fill();};
+  const line=(a,b,c,d,col)=>{dc.strokeStyle=col;dc.lineWidth=2;dc.beginPath();dc.moveTo(a,b);dc.lineTo(c,d);dc.stroke();};
+  const circ=(x,y,r,col,fill)=>{dc.beginPath();dc.arc(x,y,r,0,7);if(fill){dc.fillStyle=col;dc.fill();}else{dc.strokeStyle=col;dc.lineWidth=2;dc.stroke();}};
+  const cx=w/2, northUp=!s.compass, hd=northUp?0:s.heading;
+  const topY=Math.trunc(h*0.06), cy=topY+FH+Math.trunc(h*0.29), R=Math.trunc(h*0.27), statusY=cy+R+4, cardY=statusY+FH+2;
+  dc.fillStyle=C.sky;dc.fillRect(0,0,w,h);
+  const head=northUp?'SIN BRÚJULA · N arriba':String(Math.trunc(hd)).padStart(3,'0')+'°  BRÚJULA';
+  text(cx,topY,XT,C.muted,fit(head,XT,usable(topY)));
+  // base del radar
+  circ(cx,cy,R,C.disk,true); const a=rad(SEL);
+  poly([[cx,cy],[cx-R*Math.sin(a),cy-R*Math.cos(a)],[cx,cy-R],[cx+R*Math.sin(a),cy-R*Math.cos(a)]],C.wedge);
+  circ(cx,cy,R,C.grid);circ(cx,cy,R/2,C.grid);line(cx-R,cy,cx+R,cy,C.grid);line(cx,cy-R,cx,cy+R,C.grid);
+  const n=rad(-hd);text(cx+(R-FH/2-2)*Math.sin(n),cy-(R-FH/2-2)*Math.cos(n)-FH/2,XT,C.accent,'N');
+  text(cx+Math.trunc(R*0.74),cy+Math.trunc(R*0.62),XT,C.muted,String(s.range),'left'); circ(cx,cy,3,C.ice,true);
+  const rangeM=s.range*1000; let sel=null,best=999,count=0;
+  for(const p of s.planes){ if(p.d>rangeM)continue; count++; const r=Math.abs(diff(p.b,hd)); if(r<=SEL&&r+p.d/20000<best){best=r+p.d/20000;sel=p;} }
+  if(s.lock) sel=s.planes.find(p=>p.cs===s.lock);
+  for(const p of s.planes){ if(p.d>rangeM&&p!==sel)continue; const isSel=p===sel;
+    let r=Math.min(p.d/rangeM,1); const rl=rad(diff(p.b,hd)); const x=cx+R*r*Math.sin(rl), y=cy-R*r*Math.cos(rl);
+    const t=rad(p.track-hd), sz=isSel?9:6, fx=Math.sin(t), fy=-Math.cos(t), px=-fy, py=fx;
+    const col=isSel?C.accent:(p.alt<1500?C.low:(p.alt<6000?C.mid:C.high));
+    poly([[x+sz*fx,y+sz*fy],[x-sz*(0.7*fx+0.6*px),y-sz*(0.7*fy+0.6*py)],[x-sz*0.3*fx,y-sz*0.3*fy],[x-sz*(0.7*fx-0.6*px),y-sz*(0.7*fy-0.6*py)]],col);
+    if(isSel) circ(x,y,sz+5,C.accent); }
+  let info = sel&&sel.type ? (TYPES[sel.type]||sel.type)+(sel.reg?' · '+sel.reg:'') : count+(count==1?' avión':' aviones')+' · 4 s · adsb.lol';
+  text(cx,statusY,XT,C.muted,fit(info,XT,usable(statusY)));
+  if(!sel){ text(cx,cardY,TI,C.muted,fit('Apunta a un avión',TI,usable(cardY,TH))); return; }
+  const al=/^[A-Z]{3}[0-9]/.test(sel.cs)?(AIRLINES[sel.cs.slice(0,3)]||''):'';
+  text(cx,cardY,TI,C.accent,fit((s.lock?'» ':'')+sel.cs+(al?' '+al:''),TI,usable(cardY,TH)));
+  const y2=cardY+TH, rel=diff(sel.b,hd);
+  if(s.lock && Math.abs(rel)>SEL){ text(cx,y2,XT,C.ice,fit('Gira '+Math.trunc(Math.abs(rel))+'° a la '+(rel<0?'izquierda':'derecha'),XT,usable(y2))); return; }
+  const dist=sel.d<1000?Math.trunc(sel.d)+' m':(sel.d<9950?(Math.round(sel.d/100)/10).toFixed(1).replace('.',',')+' km':Math.round(sel.d/1000)+' km');
+  const texts=[Math.round(sel.alt/10)*10+' m',dist,Math.max(0,Math.trunc(sel.elev))+'°'];
+  const icon=Math.trunc(FH*0.45),gap=Math.trunc(icon*0.5),sep=icon+2,half=icon/2;
+  const widths=[icon,Math.trunc(icon*1.6),icon]; let total=sep*2; texts.forEach((t,i)=>total+=widths[i]+gap+tw(t,XT));
+  let x=cx-total/2; const mid=y2+FH/2;
+  texts.forEach((t,i)=>{ if(i==0)poly([[x,mid+half],[x+half,mid-half],[x+icon,mid+half]],C.mid);
+    else if(i==1){const aw=widths[1];dc.fillStyle=C.mid;dc.fillRect(x+half,mid-1,aw-icon,3);poly([[x,mid],[x+half,mid-half],[x+half,mid+half]],C.mid);poly([[x+aw,mid],[x+aw-half,mid-half],[x+aw-half,mid+half]],C.mid);}
+    else{line(x,mid+half,x+icon,mid+half,C.mid);line(x,mid+half,x+icon,mid-half,C.mid);}
+    x+=widths[i]+gap; text(x,y2,XT,C.ice,t,'left'); x+=tw(t,XT)+sep; });
+  dc.globalCompositeOperation='destination-in';dc.beginPath();dc.arc(cx,h/2,h/2,0,7);dc.fill();
+}
+window.drawScene=drawScene;
+</script></body></html>

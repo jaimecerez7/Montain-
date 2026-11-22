@@ -50,6 +50,28 @@ def parse_ele(v):
     return float(m.group(1).replace(",", ".")) if m else None
 
 
+# Cumbres principales: la más alta en 5 km a la redonda (referencia de cada sierra), o bien
+# más de 1700 m y la más alta en 1,5 km (cumbres de cresta, sin los riscos pegados a ellas),
+# o una de las emblemáticas que el criterio dejaría fuera.
+DOMINANT_M = 5000
+HIGH_ELE = 1700
+HIGH_DOMINANT_M = 1500
+ALWAYS = {"Abantos", "La Peñota", "Cabeza Líjar", "La Maliciosa", "Siete Picos", "Montón de Trigo"}
+
+
+def principal(peaks):
+    def dist(a, b):
+        dy = (a[1] - b[1]) * 110540
+        dx = (a[2] - b[2]) * 111320 * math.cos(math.radians(a[1]))
+        return math.hypot(dx, dy)
+
+    def dominant(p, radius):
+        return not any(q[3] > p[3] and dist(p, q) < radius for q in peaks)
+
+    return [p for p in peaks if dominant(p, DOMINANT_M) or (p[3] >= HIGH_ELE and dominant(p, HIGH_DOMINANT_M))
+            or any(p[0].startswith(a) for a in ALWAYS)]
+
+
 def fetch():
     body = urllib.parse.urlencode({"data": QUERY}).encode()
     last = None
@@ -83,6 +105,7 @@ def build(data, source_url):
             continue
         seen.append((name, lat, lon))
         peaks.append((name[:60], lat, lon, round(ele)))
+    peaks = principal(peaks)
     peaks.sort(key=lambda p: -p[3])   # las más altas primero dentro de cada tesela
 
     out = ROOT / "resources/peaks"

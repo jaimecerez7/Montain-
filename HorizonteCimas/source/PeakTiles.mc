@@ -5,7 +5,7 @@ import Toybox.Lang;
 // Datos © colaboradores de OpenStreetMap (ODbL).
 module PeakTiles {
     const VERSION = "2026-11-22";
-    const COUNT = 689;
+    const COUNT = 164;
     const SOUTH = 40.55;
     const WEST = -4.75;
     const NORTH = 41.62;

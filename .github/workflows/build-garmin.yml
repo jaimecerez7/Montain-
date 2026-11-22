@@ -22,6 +22,8 @@ jobs:
     env:
       APP_DIR: ${{ matrix.app }}
       JAVA_TOOL_OPTIONS: -Xmx6g
+      # HorizonteCimas: sin comprobación de tipos global (el comprobador agota la memoria).
+      MC_FLAGS: ${{ matrix.app == 'HorizonteCimas' && '--typecheck 0' || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -99,7 +101,7 @@ jobs:
       - name: Compilar pruebas (fr165)
         run: |
           mkdir -p build
-          monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165 -w -t -o build/tests-fr165.prg
+          monkeyc $MC_FLAGS -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165 -w -t -o build/tests-fr165.prg
 
       - name: Pruebas en el simulador (sin red, base offline)
         if: matrix.app == 'HorizonteCimas'
@@ -117,11 +119,11 @@ jobs:
 
       - name: Compilar para Forerunner 165 y 165 Music (.prg para USB)
         run: |
-          monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165 -w -r -o build/$APP_DIR-fr165.prg
-          monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165m -w -r -o build/$APP_DIR-fr165m.prg
+          monkeyc $MC_FLAGS -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165 -w -r -o build/$APP_DIR-fr165.prg
+          monkeyc $MC_FLAGS -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165m -w -r -o build/$APP_DIR-fr165m.prg
 
       - name: Exportar paquete para la tienda (.iq)
-        run: monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -e -w -r -o build/$APP_DIR.iq
+        run: monkeyc $MC_FLAGS -f "$APP_DIR/monkey.jungle" -y developer_key.der -e -w -r -o build/$APP_DIR.iq
 
       - uses: actions/upload-artifact@v4
         with:

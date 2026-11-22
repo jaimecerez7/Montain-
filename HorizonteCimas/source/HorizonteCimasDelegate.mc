@@ -4,6 +4,7 @@ import Toybox.WatchUi;
 // SELECT / START: actualizar por Internet (opcional; la base offline ya basta en Segovia y Guadarrama)
 // ARRIBA / ABAJO (o deslizar): girar a mano (modo manual, para relojes sin brújula)
 // MENÚ (mantener ARRIBA): brújula, actualización online, recarga offline y diagnóstico
+(:typecheck(false))
 class HorizonteCimasDelegate extends WatchUi.BehaviorDelegate {
     var model;
 
@@ -48,6 +49,7 @@ class HorizonteCimasDelegate extends WatchUi.BehaviorDelegate {
     }
 }
 
+(:typecheck(false))
 class HorizonteCimasMenuDelegate extends WatchUi.Menu2InputDelegate {
     var model;
 

@@ -7,6 +7,7 @@ import Toybox.Timer;
 import Toybox.WatchUi;
 
 // Diagnóstico: de dónde salen las cimas, cuánto cuesta cargarlas y estado de GPS, red y memoria.
+(:typecheck(false))
 class DiagnosticView extends WatchUi.View {
     var model as PeakModel;
     var timer;

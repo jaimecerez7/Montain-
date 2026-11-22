@@ -8,6 +8,7 @@ import Toybox.WatchUi;
 // Datos OSM, caché local y geometría precalculada para que el dibujo sea ligero.
 // peaks: [nombre, latitud, longitud, elevacion_m]   (ordenadas por rumbo desde la descarga)
 // geom:  [rumbo_grados, elevacion_aparente, distancia_m, elevacion_m, nombre, posible_oculta]
+(:typecheck(false))
 class PeakModel {
     const NEAR_RADIUS_M = 10000;
     const FAR_RADIUS_M = 40000;

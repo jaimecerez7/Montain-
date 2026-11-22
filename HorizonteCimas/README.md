@@ -2,7 +2,14 @@
 
 ## Base offline: Segovia y Sierra de Guadarrama (0.5)
 
-La app incluye **las cumbres reales de OpenStreetMap** de la provincia de Segovia y la Sierra de Guadarrama, incluidas las vertientes de Madrid y Ávila (40,55–41,62° N, 4,75–3,15° O). Cada cumbre tiene nombre, latitud, longitud y elevación; las que no tienen elevación en OSM no se incluyen.
+La app incluye **las cumbres principales de OpenStreetMap** de la provincia de Segovia y la Sierra de Guadarrama, incluidas las vertientes de Madrid y Ávila (40,55–41,62° N, 4,75–3,15° O): 164 de las 689 que tienen nombre y elevación en OSM. Cada una tiene nombre, latitud, longitud y elevación.
+
+**Qué cuenta como cumbre principal:**
+- la más alta en **5 km** a la redonda (la referencia de cada sierra); o
+- una de más de **1700 m** que sea la más alta en **1,5 km** (las cumbres de cresta, sin los riscos pegados a ellas); o
+- una de una lista corta de emblemáticas que el criterio dejaría fuera: Abantos, La Peñota, Cabeza Líjar, La Maliciosa, Siete Picos y Montón de Trigo.
+
+Los parámetros están al principio de `tools/fetch_peaks.py`.
 
 - **Al abrir la app**, la primera posición (aunque sea la última conocida) basta para mostrar las cimas. **No hace falta Internet ni móvil.**
 - **Empaquetado:** recursos JSON de Connect IQ (`resources/peaks/`) en teselas de 0,5° × 0,5°. Cada tesela son dos cadenas: los nombres seguidos y registros de ancho fijo de 21 caracteres (latitud, longitud, elevación y posición del nombre). Son tipos triviales para el compilador y crean muy pocos objetos en el reloj: solo se generan los nombres de las cimas elegidas.

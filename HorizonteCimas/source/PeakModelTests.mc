@@ -119,6 +119,7 @@ function distanceFormat(logger as Test.Logger) as Boolean {
 //   monkeydo HorizonteCimas-tests.prg fr165 -t
 // (con la conexión del simulador desactivada deben pasar igual).
 
+(:typecheck(false))
 function findPeak(model as PeakModel, name as String) {
     for (var i = 0; i < model.geom.size(); i++) {
         var n = model.geom[i][4];
@@ -127,7 +128,7 @@ function findPeak(model as PeakModel, name as String) {
     return null;
 }
 
-(:test)
+(:test :typecheck(false))
 function offlineCoverage(logger as Test.Logger) as Boolean {
     var model = new PeakModel();
     Test.assert(model.inCoverage(40.7417, -4.0567));     // Cercedilla
@@ -141,7 +142,7 @@ function offlineCoverage(logger as Test.Logger) as Boolean {
     return true;
 }
 
-(:test)
+(:test :typecheck(false))
 function offlineLoadCercedilla(logger as Test.Logger) as Boolean {
     var model = new PeakModel();
     model.lat = 40.7417;
@@ -168,7 +169,7 @@ function offlineLoadCercedilla(logger as Test.Logger) as Boolean {
     return true;
 }
 
-(:test)
+(:test :typecheck(false))
 function offlineStartsWithoutNetwork(logger as Test.Logger) as Boolean {
     // Simula el arranque: primera posición (aunque sea la última conocida) dentro de la zona.
     var model = new PeakModel();
@@ -190,7 +191,7 @@ function offlineStartsWithoutNetwork(logger as Test.Logger) as Boolean {
     return true;
 }
 
-(:test)
+(:test :typecheck(false))
 function offlineOutsideZone(logger as Test.Logger) as Boolean {
     var model = new PeakModel();
     model.peaks = [];
@@ -203,7 +204,7 @@ function offlineOutsideZone(logger as Test.Logger) as Boolean {
     return true;
 }
 
-(:test)
+(:test :typecheck(false))
 function offlineSelectionOrder(logger as Test.Logger) as Boolean {
     var model = new PeakModel();
     var near = [] as Array<Array>;

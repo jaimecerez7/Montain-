@@ -279,8 +279,8 @@ def grid_sprite(side):
 
 
 # ------------------------------------------------------------------ COLLAGE
-PALETTE = ["#D8262A", "#1E9E4C", "#2E5FA8", "#6FA8DC", "#F2A1B0", "#C99A2E", "#F2C230", "#EE6A22",
-           "#151413", "#F6F2EA", "#0F6B3A", "#1F8F86"]   # rojo, verde, cobalto, cielo, rosa, ocre, mostaza, naranja, negro, blanco, verde hondo, turquesa
+PALETTE = ["#D23A22", "#13894C", "#2550A0", "#5D93BC", "#C8664B", "#C8932B", "#E8B227", "#E0631B",
+           "#151413", "#F3EEE4", "#0E5A3A", "#17807A"]   # bermellón, esmeralda, cobalto, cerúleo, terracota, ocre, azafrán, naranja quemado, negro, hueso, verde hondo, turquesa
 LABEL = (56, 88, 334, 294)
 
 
@@ -349,7 +349,7 @@ def dot_pattern(img, x0, y0, color, seed, cols=4, rows=3, step=9, r=2.4):
 def bg_collage(seed=91):
     rng = np.random.default_rng(seed)
     img = mottle(linen(solid("#E9D8B8"), 0.07, seed), 0.06, seed + 1, 4)
-    big = PALETTE[:8] + ["#0F6B3A", "#1F8F86"]
+    big = PALETTE[:8] + ["#0E5A3A", "#17807A"]
     # 1) grandes formas pintadas (dominan la composición)
     for i in range(34):
         c = big[rng.integers(len(big))]
@@ -376,16 +376,16 @@ def bg_collage(seed=91):
     # 3) hojas con nervio, ojos y puntos
     for i in range(7):
         img = leaf(img, rng.uniform(0, 390), rng.uniform(0, 390), rng.uniform(26, 44), rng.uniform(0, np.pi),
-                   ["#1E9E4C", "#0F6B3A", "#151413", "#1F8F86"][i % 4], 600 + i)
+                   ["#13894C", "#0E5A3A", "#151413", "#17807A"][i % 4], 600 + i)
     for i in range(5):
         cx, cy, r = rng.uniform(20, 370), rng.uniform(20, 370), rng.uniform(12, 20)
         ring = [(cx + np.cos(q) * r, cy + np.sin(q) * r) for q in np.linspace(0, 2 * np.pi, 40)[:-1]]
-        img = over(img, solid(["#F6F2EA", "#F2C230", "#F2A1B0"][i % 3]), poly_mask(ring, 0.5))
+        img = over(img, solid(["#F3EEE4", "#E8B227", "#C8664B"][i % 3]), poly_mask(ring, 0.5))
         img = outline(img, ring, "#151413", 2.0, 5000 + i)
         pupil = [(cx + np.cos(q) * r * 0.42, cy + np.sin(q) * r * 0.42) for q in np.linspace(0, 2 * np.pi, 30)[:-1]]
         img = over(img, solid("#151413"), poly_mask(pupil, 0.5))
     for i in range(6):
-        img = dot_pattern(img, rng.uniform(10, 340), rng.uniform(10, 350), ["#F6F2EA", "#151413", "#1E9E4C"][i % 3],
+        img = dot_pattern(img, rng.uniform(10, 340), rng.uniform(10, 350), ["#F3EEE4", "#151413", "#13894C"][i % 3],
                           6000 + i, cols=rng.integers(3, 6), rows=rng.integers(2, 4))
     for i in range(4):
         x0, y0 = rng.uniform(0, 340), rng.uniform(0, 360)

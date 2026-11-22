@@ -1,17 +1,22 @@
-name: Compilar Horizonte Cimas
+name: Compilar apps Garmin
 
 on:
   push:
     paths:
       - "HorizonteCimas/**"
+      - "RadarVuelos/**"
       - ".github/workflows/build-garmin.yml"
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [HorizonteCimas, RadarVuelos]
     env:
-      APP_DIR: HorizonteCimas
+      APP_DIR: ${{ matrix.app }}
     steps:
       - uses: actions/checkout@v4
 
@@ -21,6 +26,7 @@ jobs:
           java-version: "17"
 
       - name: Validador Python
+        if: hashFiles(format('{0}/tools/validate_project.py', matrix.app)) != ''
         run: python3 -I "$APP_DIR/tools/validate_project.py"
 
       - name: Comprobar secretos
@@ -91,17 +97,17 @@ jobs:
 
       - name: Compilar para Forerunner 165 y 165 Music (.prg para USB)
         run: |
-          monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165 -w -r -o build/HorizonteCimas-fr165.prg
-          monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165m -w -r -o build/HorizonteCimas-fr165m.prg
+          monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165 -w -r -o build/$APP_DIR-fr165.prg
+          monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -d fr165m -w -r -o build/$APP_DIR-fr165m.prg
 
       - name: Exportar paquete para la tienda (.iq)
-        run: monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -e -w -r -o build/HorizonteCimas.iq
+        run: monkeyc -f "$APP_DIR/monkey.jungle" -y developer_key.der -e -w -r -o build/$APP_DIR.iq
 
       - uses: actions/upload-artifact@v4
         with:
-          name: HorizonteCimas
+          name: ${{ matrix.app }}
           path: |
-            build/HorizonteCimas.iq
-            build/HorizonteCimas-fr165.prg
-            build/HorizonteCimas-fr165m.prg
+            build/${{ matrix.app }}.iq
+            build/${{ matrix.app }}-fr165.prg
+            build/${{ matrix.app }}-fr165m.prg
           if-no-files-found: error

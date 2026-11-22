@@ -1,0 +1,13 @@
+<resources>
+    <jsonData id="PeaksR0C0" filename="peaks_r0_c0.json"/>
+    <jsonData id="PeaksR0C1" filename="peaks_r0_c1.json"/>
+    <jsonData id="PeaksR0C2" filename="peaks_r0_c2.json"/>
+    <jsonData id="PeaksR0C3" filename="peaks_r0_c3.json"/>
+    <jsonData id="PeaksR1C0" filename="peaks_r1_c0.json"/>
+    <jsonData id="PeaksR1C1" filename="peaks_r1_c1.json"/>
+    <jsonData id="PeaksR1C2" filename="peaks_r1_c2.json"/>
+    <jsonData id="PeaksR1C3" filename="peaks_r1_c3.json"/>
+    <jsonData id="PeaksR2C0" filename="peaks_r2_c0.json"/>
+    <jsonData id="PeaksR2C1" filename="peaks_r2_c1.json"/>
+    <jsonData id="PeaksR2C2" filename="peaks_r2_c2.json"/>
+</resources>

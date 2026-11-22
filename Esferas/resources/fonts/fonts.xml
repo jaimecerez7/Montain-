@@ -3,4 +3,6 @@
     <font id="Timem" filename="timem.fnt" antialias="true"/>
     <font id="Data" filename="data.fnt" antialias="true"/>
     <font id="Label" filename="label.fnt" antialias="true"/>
+    <font id="Small" filename="small.fnt" antialias="true"/>
+    <font id="Mini" filename="mini.fnt" antialias="true"/>
 </fonts>

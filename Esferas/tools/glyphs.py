@@ -80,7 +80,7 @@ def painted(ch, seed, dark, mid, light):
 
 
 def cream_paint(ch, seed):
-    m = font_mask(ch, 96, 330)
+    m = font_mask(ch, 106, 330)
     h, w = m.shape
     weave = 0.5 * (noise(h, w, h // 2, w // 9, seed) + noise(h, w, h // 9, w // 2, seed + 1))
     rgb = hexrgb("#F2EADF")[None, None, :] * (0.93 + 0.12 * weave)[..., None]

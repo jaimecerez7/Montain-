@@ -13,6 +13,8 @@ const F = {
   timem: { size: 88,  weight: 280, track: 0 },
   data:  { size: 28,  weight: 340, track: 1 },
   label: { size: 19,  weight: 460, track: 5 },
+  small: { size: 21,  weight: 380, track: 1 },
+  mini:  { size: 13,  weight: 520, track: 3 },
 };
 let dc, k = 1;
 const P = v => Math.round(v * k);
@@ -62,7 +64,7 @@ function icon(kind, x, y, s, col, bg){
     const ay = y + s * (kind === 'sunrise' ? 0.92 : 0.84), d = s * 0.06 * (kind === 'sunrise' ? -1 : 1), dx = s * 0.12;
     line(cx - dx, ay - d, cx, ay + d, col); line(cx + dx, ay - d, cx, ay + d, col); return;
   }
-  if (kind === 'drop'){ const cx = x + h, r = s * 0.27;
+  if (kind === 'drop'){ x += s / 6; y += s / 8; s *= 0.7; const cx = x + s / 2, r = s * 0.27;
     poly([[cx, y + s*0.08], [cx + r, y + s*0.58], [cx - r, y + s*0.58]], col); circle(cx, y + s*0.62, r, col); return; }
   if (kind === 'steps'){ dc.fillStyle = col;
     dc.beginPath(); dc.ellipse(x + s*0.30, y + s*0.40, s*0.13, s*0.22, 0, 0, 7); dc.fill(); circle(x + s*0.30, y + s*0.76, s*0.08, col);
@@ -90,11 +92,12 @@ function icon(kind, x, y, s, col, bg){
 const fmtSteps = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
 // Fila de complicaciones: [icono, texto] centrados como un bloque, separados por aire.
-function row(cx, y, items, col, iconCol, bg, ic = 24){
-  const gap = P(7), sep = P(22), s = P(ic);
-  let w = -sep; for (const it of items) w += s + gap + textW(it[1], F.data) + sep;
+function row(cx, y, items, col, iconCol, bg, ic = 24, f = F.data){
+  const gap = P(f === F.data ? 7 : 5), sep = P(f === F.data ? 22 : 14), s = P(ic);
+  let w = -sep; for (const it of items) w += s + gap + textW(it[1], f) + sep;
   let x = cx - w / 2;
-  for (const it of items){ icon(it[0], x, y - P(2), s, iconCol, bg); x += s + gap; x += text(x, y, it[1], F.data, col, 'l') + sep; }
+  const dy = f === F.data ? P(2) : P(3) - (s - P(f.size * 0.7)) / 2;
+  for (const it of items){ icon(it[0], x, y - dy, s, iconCol, bg); x += s + gap; x += text(x, y, it[1], f, col, 'l') + sep; }
 }
 function sunItem(d){ return d.nextSun === 'sunrise' ? ['sunrise', d.sunrise] : ['sunset', d.sunset]; }
 
@@ -110,14 +113,21 @@ function cinta(d, verde){
 // =================== BLOQUES ===================
 function bloques(d){
   art('bloques');
-  const cream = '#F0E4D6', dark = '#3A1E18';
-  row(P(193), P(102), [[d.cond, d.temp + '°']], cream, cream, '#7A2C2E', 24);
-  row(P(312), P(102), [['battery', d.battery + '%']], cream, cream, '#4A161A', 22);
-  text(P(250), P(166), d.date, F.label, '#B9B2A8');
-  glyphTime(P(250), P(196), d.time, 'bl', 2);
-  icon('steps', P(58), P(186), P(24), dark);
-  text(P(70), P(220), fmtSteps(d.steps), F.data, dark);
-  const s = sunItem(d); row(P(250), P(299), [s], cream, cream, '#A3461C', 18);
+  // Cada bloque es un dato, escrito en un tono derivado de su propio color.
+  text(P(72), P(88), d.date.split(' ')[0], F.small, '#5E201C');                        // salmón: fecha
+  text(P(72), P(114), d.date.split(' ').slice(1).join(' '), F.mini, '#7E3329');
+  row(P(190), P(86), [[d.cond, d.temp + '°']], '#F3D2C2', '#F3D2C2', '#7B2A2C', 20, F.small);  // burdeos: tiempo
+  text(P(190), P(114), 'LLUVIA ' + d.precip + '%', F.mini, '#D69A8A');
+  const mp = IMG['moon' + d.moonIdx];                                                  // sangre de buey: luna
+  dc.drawImage(mp, P(290) - mp.width / 2, P(96) - mp.height / 2);
+  text(P(308), P(86), Math.round(d.moonIllum * 100) + '%', F.small, '#E9BFB4', 'l');
+  text(P(312), P(114), 'LUNA', F.mini, '#B87A72');
+  icon('steps', P(60), P(176), P(22), '#6A2E22');                                      // melocotón: pasos
+  text(P(70), P(208), fmtSteps(d.steps), F.data, '#4A1F17');
+  text(P(70), P(240), 'PASOS', F.mini, '#8E4C3A');
+  glyphTime(P(252), P(184), d.time, 'bl', 3);                                          // grafito: hora
+  row(P(80), P(300), [['battery', d.battery + '%']], '#CFC5B5', '#CFC5B5', '#151513', 14, F.small);   // negro: batería
+  row(P(250), P(300), [['sunrise', d.sunrise], ['sunset', d.sunset]], '#F6DDC8', '#F6DDC8', '#A9471B', 14, F.small);
 }
 
 // =================== RETÍCULA ===================
@@ -140,10 +150,17 @@ function reticula(d){
 // =================== COLLAGE ===================
 function collage(d){
   art('collage');
-  const ink = '#24211E', soft = '#857A6B', paper = '#F4EEE2';
-  text(P(195), P(66), d.date, F.label, ink);
-  glyphTime(P(195), P(112), d.time, 'co', -2);
-  row(P(195), P(264), [[d.cond, d.temp + '°'], ['steps', fmtSteps(d.steps)], ['battery', d.battery + '%']], ink, soft, paper, 20);
+  const ink = '#24211E', soft = '#6E6457';
+  text(P(195), P(64), d.date, F.label, ink);                                           // cinta adhesiva: fecha
+  glyphTime(P(195), P(104), d.time, 'co', -2);                                         // papeles recortados: hora
+  row(P(104), P(258), [[d.cond, d.temp + '°']], ink, soft, '#F5EFE3', 18, F.small);       // círculo crema: tiempo
+  row(P(104), P(284), [['drop', d.precip + '%']], soft, soft, '#F5EFE3', 14, F.small);
+  const mp = IMG['moon' + d.moonIdx];                                                  // círculo azul noche: luna
+  dc.drawImage(mp, P(286) - mp.width / 2, P(264) - mp.height / 2);
+  text(P(286), P(284), Math.round(d.moonIllum * 100) + '%', F.mini, '#E9E2D2');
+  row(P(195), P(258), [['steps', fmtSteps(d.steps)]], ink, soft, '#F2E7CF', 14, F.small);   // tira: pasos y batería
+  row(P(195), P(280), [['battery', d.battery + '%']], soft, soft, '#F2E7CF', 14, F.small);
+  row(P(195), P(326), [['sunrise', d.sunrise], ['sunset', d.sunset]], ink, soft, '#EBDDBA', 14, F.small);  // cinta: sol
 }
 
 // =================== CIELO PINTADO ===================

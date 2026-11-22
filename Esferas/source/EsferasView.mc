@@ -25,13 +25,14 @@ class EsferasView extends WatchUi.WatchFace {
     function loadSettings() as Void {
         var t = null;
         try { t = Application.Properties.getValue("Theme"); } catch (ex) {}
-        theme = t instanceof Number && t >= 0 && t <= 5 ? t : 5;
+        theme = t instanceof Number && t >= 0 && t <= 5 ? t : 2;
         loadArt();
     }
 
     function onLayout(dc as Graphics.Dc) as Void {
-        themes = new Themes(WatchUi.loadResource(Rez.Fonts.Time), WatchUi.loadResource(Rez.Fonts.Timem),
-            WatchUi.loadResource(Rez.Fonts.Data), WatchUi.loadResource(Rez.Fonts.Label));
+        themes = new Themes([WatchUi.loadResource(Rez.Fonts.Time), WatchUi.loadResource(Rez.Fonts.Timem),
+            WatchUi.loadResource(Rez.Fonts.Data), WatchUi.loadResource(Rez.Fonts.Label),
+            WatchUi.loadResource(Rez.Fonts.Small), WatchUi.loadResource(Rez.Fonts.Mini)]);
         loadArt();
     }
 
@@ -93,6 +94,12 @@ class EsferasView extends WatchUi.WatchFace {
                 t.bg = WatchUi.loadResource(skies[data.skyState]);
                 loadedSky = data.skyState;
             }
+            moonArt(t);
+        } catch (ex) {}
+    }
+
+    function moonArt(t as Themes) as Void {
+        try {
             if (data.moonIdx != loadedMoon) {
                 var moons = [Rez.Drawables.Moon0, Rez.Drawables.Moon1, Rez.Drawables.Moon2, Rez.Drawables.Moon3,
                     Rez.Drawables.Moon4, Rez.Drawables.Moon5, Rez.Drawables.Moon6, Rez.Drawables.Moon7];
@@ -110,6 +117,7 @@ class EsferasView extends WatchUi.WatchFace {
         if (dc has :setAntiAlias) { dc.setAntiAlias(true); }
         data.update();
         if (theme == 5) { cieloArt(t); }
+        else if (theme == 2 || theme == 4) { moonArt(t); }
         if (sleeping && burnIn) {
             t.aod(dc, data, System.getClockTime().min);
         } else {

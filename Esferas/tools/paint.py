@@ -200,22 +200,35 @@ def bg_cinta(ground, colors, ink, seed):
 
 
 # ------------------------------------------------------------------ BLOQUES
-BLOCKS = [  # x0, y0, x1, y1, color
-    (-40, -40, 118, 150, "#C68570"), (118, -40, 268, 150, "#7A2C2E"), (268, -40, 430, 150, "#4A161A"),
-    (-40, 150, 118, 296, "#D7A283"), (118, 150, 430, 296, "#2D2F2D"),
-    (-40, 296, 118, 322, "#161615"), (118, 296, 430, 322, "#A3461C"), (-40, 322, 430, 430, "#5B1F23"),
+BLOCKS = [  # x0, y0, x1, y1, color — cada bloque aloja un dato
+    (-40, -40, 118, 140, "#C98371"),   # salmón: fecha
+    (118, -40, 262, 140, "#7B2A2C"),   # burdeos: tiempo
+    (262, -40, 430, 140, "#4B1417"),   # sangre de buey: luna
+    (-40, 140, 118, 292, "#DDA584"),   # melocotón: pasos
+    (118, 140, 430, 292, "#2B2C2A"),   # grafito: hora
+    (-40, 292, 118, 320, "#151513"),   # negro: batería
+    (118, 292, 430, 320, "#A9471B"),   # óxido: amanecer y atardecer
 ]
 
 
+def burlap(img, strength, seed):
+    """Lino grueso: hilos visibles en dos direcciones, con nudos y variación de grosor."""
+    tx = np.sin(xx * K * 1.25 + 2.0 * noise(4, 300, seed)) * 0.5 + 0.5
+    ty = np.sin(yy * K * 1.25 + 2.0 * noise(300, 4, seed + 1)) * 0.5 + 0.5
+    weave = 0.55 * tx * ty + 0.45 * (noise(N // 6, N // 2, seed + 2) * 0.5 + noise(N // 2, N // 6, seed + 3) * 0.5)
+    return img * (1 + strength * (weave - 0.5)[..., None])
+
+
 def bg_bloques():
-    img = linen(solid("#C6B79F"), 0.12, 20)                           # lino crudo entre bloques
+    img = burlap(mottle(solid("#CDBFA8"), 0.06, 19, 4), 0.22, 20)       # lino crudo sin pintar
     for i, (x0, y0, x1, y1, c) in enumerate(BLOCKS):
-        fill = linen(mottle(solid(c), 0.10, 30 + i, 3), 0.16, 40 + i)
-        img = over(img, fill, rect_mask(x0 + 1.2, y0 + 1.2, x1 - 1.2, y1 - 1.2, 50 + i))
-    return to_image(vignette(img, 0.10))
+        fill = burlap(mottle(solid(c), 0.12, 30 + i, 3), 0.20, 40 + i)
+        fill = fill * (1 + 0.05 * (fbm(2, 60 + i, 2) - 0.5)[..., None] * 2)   # capas de pintura
+        img = over(img, fill, rect_mask(x0 + 1.6, y0 + 1.6, x1 - 1.6, y1 - 1.6, 50 + i, rough=2.0, soft=0.9))
+    # firma discreta en el lino crudo
+    return to_image(vignette(img, 0.12))
 
 
-# ------------------------------------------------------------------ RETÍCULA
 GRID = dict(x0=105, y0=160, pitch=18, n=10, size=12.5)
 
 
@@ -271,60 +284,95 @@ PALETTE = ["#D7372A", "#1E8A4B", "#EFA2A6", "#D8A126", "#5A8FD0", "#151413", "#F
 LABEL = (56, 88, 334, 294)
 
 
+COLLAGE_HOLDERS = {   # soportes de papel para los datos (diseño a 390)
+    "temp": ("circle", 104, 272, 44, "#F5EFE3"),
+    "moon": ("circle", 286, 272, 44, "#1F2A44"),
+    "steps": ("rect", 150, 248, 240, 298, "#F2E7CF"),
+    "sun": ("rect", 118, 320, 272, 348, "#EBDDBA"),
+    "date": ("rect", 122, 56, 268, 84, "#EFE6CC"),
+}
+
+
+def paper_piece(img, kind, geom, color, seed, shadow=0.32):
+    if kind == "circle":
+        cx, cy, r = geom
+        pts = [(cx + np.cos(q) * r * (1 + 0.015 * np.sin(q * 7 + seed)), cy + np.sin(q) * r) for q in np.linspace(0, 2 * np.pi, 72)[:-1]]
+        sh = poly_mask([(x + 2, y + 3) for x, y in pts], blur=3)
+        m = poly_mask(pts, blur=0.5)
+    else:
+        x0, y0, x1, y1 = geom
+        sh = rect_mask(x0 + 2, y0 + 3, x1 + 2, y1 + 3, seed, rough=2.5, soft=3)
+        m = rect_mask(x0, y0, x1, y1, seed + 1, rough=2.2, soft=0.7)
+    img = img * (1 - shadow * sh)[..., None]
+    paper = mottle(linen(solid(color), 0.05, seed + 2), 0.05, seed + 3, 3)
+    return over(img, paper, m)
+
+
+def leaf(img, x, y, size, angle, color, seed):
+    pts = []
+    for q in np.linspace(0, np.pi, 18):
+        pts.append((np.cos(q) * size, -np.sin(q) * size * 0.42))
+    for q in np.linspace(np.pi, 2 * np.pi, 18)[1:-1]:
+        pts.append((np.cos(q) * size, -np.sin(q) * size * 0.42))
+    rot = [(x + px * np.cos(angle) - py * np.sin(angle), y + px * np.sin(angle) + py * np.cos(angle)) for px, py in pts]
+    img = over(img, mottle(linen(solid(color), 0.08, seed), 0.12, seed + 1, 5), poly_mask(rot, 0.5))
+    vein = [(x - np.cos(angle) * size * 0.9, y - np.sin(angle) * size * 0.9), (x + np.cos(angle) * size * 0.9, y + np.sin(angle) * size * 0.9)]
+    return ink_lines(img, [spline(vein, steps=20)], "#F3EEE4" if color != "#F3EEE4" else "#141312", 1.0, seed + 2)
+
+
 def bg_collage():
-    rng = np.random.default_rng(90)
+    rng = np.random.default_rng(91)
     img = linen(solid("#EFE5CF"), 0.06, 91)
-    for i in range(150):
+    # 1) grandes papeles de fondo
+    for i in range(70):
         c = PALETTE[rng.integers(len(PALETTE))]
-        x, y = rng.uniform(-30, 420), rng.uniform(-30, 420)
-        kind = rng.choice(["rect", "blob", "leaf", "circle", "bar"], p=[0.30, 0.34, 0.1, 0.1, 0.16])
-        sz = rng.uniform(30, 110) * (1.0 if i < 110 else 0.5)
-        a = rng.uniform(0, np.pi)
-        if kind == "rect":
-            w, h = sz, sz * rng.uniform(0.4, 1.2)
-            pts = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]
-        elif kind == "bar":
-            w, h = sz * 1.6, sz * 0.22
-            pts = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]
-        elif kind == "circle":
-            pts = [(np.cos(q) * sz / 2, np.sin(q) * sz / 2) for q in np.linspace(0, 2 * np.pi, 28)]
-        elif kind == "leaf":
-            pts = [(np.cos(q) * sz * 0.7, np.sin(q) * sz * 0.28 * np.sin(q) ** 0) for q in np.linspace(0, 2 * np.pi, 28)]
-            pts = [(px, py * abs(np.sin(np.arctan2(py, px)))) for px, py in pts]
-        else:
-            ctrl = [(np.cos(q) * sz / 2 * rng.uniform(0.6, 1.2), np.sin(q) * sz / 2 * rng.uniform(0.6, 1.2))
-                    for q in np.linspace(0, 2 * np.pi, 7)[:-1]]
-            pts = spline(ctrl, closed=True, steps=8)
+        x, y = rng.uniform(-40, 430), rng.uniform(-40, 430)
+        w, h = rng.uniform(50, 130), rng.uniform(30, 110)
+        a = rng.uniform(-0.6, 0.6)
+        pts = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]
+        if rng.random() < 0.5:
+            pts = spline([(px * rng.uniform(0.7, 1.15), py * rng.uniform(0.7, 1.15)) for px, py in pts], closed=True, steps=8)
         rot = [(x + px * np.cos(a) - py * np.sin(a), y + px * np.sin(a) + py * np.cos(a)) for px, py in pts]
-        fill = mottle(linen(solid(c), 0.10, 100 + i), 0.12, 500 + i, 5)
-        img = over(img, fill, poly_mask(rot, 0.5) * rng.uniform(0.85, 1.0))
-        if kind == "leaf" and rng.random() < 0.8:                       # nervio de la hoja
-            img = ink_lines(img, [[rot[0], (x, y), rot[14]]], "#141312", 0.8, 200 + i)
-    # garabatos de tinta y trazos blancos
-    for i in range(26):
+        img = over(img, mottle(linen(solid(c), 0.10, 100 + i), 0.12, 500 + i, 5), poly_mask(rot, 0.5))
+    # 2) hojas, círculos con "ojo", rayas
+    for i in range(9):
+        img = leaf(img, rng.uniform(0, 390), rng.uniform(0, 390), rng.uniform(22, 40), rng.uniform(0, np.pi),
+                   ["#1E8A4B", "#2A7E78", "#151413"][i % 3], 600 + i)
+    for i in range(5):
+        cx, cy, r = rng.uniform(20, 370), rng.uniform(20, 370), rng.uniform(12, 22)
+        ring = [(cx + np.cos(q) * r, cy + np.sin(q) * r) for q in np.linspace(0, 2 * np.pi, 40)[:-1]]
+        img = over(img, solid(["#F3EEE4", "#D8A126", "#EFA2A6"][i % 3]), poly_mask(ring, 0.5))
+        pupil = [(cx + np.cos(q) * r * 0.45, cy + np.sin(q) * r * 0.45) for q in np.linspace(0, 2 * np.pi, 30)[:-1]]
+        img = over(img, solid("#151413"), poly_mask(pupil, 0.5))
+    for i in range(4):
+        x0, y0 = rng.uniform(0, 340), rng.uniform(0, 360)
+        for j in range(5):
+            bar = [(x0 + j * 9, y0), (x0 + j * 9 + 4, y0), (x0 + j * 9 + 4, y0 + 34), (x0 + j * 9, y0 + 34)]
+            img = over(img, solid("#151413" if i % 2 else "#F3EEE4"), poly_mask(bar, 0.4))
+    # 3) tinta: trazos gruesos negros y líneas de tiza blancas
+    for i in range(22):
         pts = [(rng.uniform(-10, 400), rng.uniform(-10, 400))]
-        for _ in range(rng.integers(3, 7)):
-            pts.append((pts[-1][0] + rng.normal(0, 45), pts[-1][1] + rng.normal(0, 45)))
+        for _ in range(rng.integers(3, 6)):
+            pts.append((pts[-1][0] + rng.normal(0, 50), pts[-1][1] + rng.normal(0, 50)))
         black = i % 3 != 0
         img = ink_lines(img, [spline(pts, steps=12)], "#141312" if black else "#F6F2EA",
-                        rng.uniform(3.0, 7.0) if (black and i % 4 == 1) else rng.uniform(0.9, 2.0), 300 + i)
-    # puntos
-    for i in range(6):
+                        rng.uniform(4.0, 8.0) if (black and i % 4 == 1) else rng.uniform(1.0, 2.2), 300 + i)
+    # 4) racimos de puntos
+    for i in range(7):
         cx, cy = rng.uniform(20, 370), rng.uniform(20, 370)
-        c = PALETTE[rng.integers(len(PALETTE))]
+        c = ["#F3EEE4", "#151413", "#D7372A", "#1E8A4B"][i % 4]
         m = Image.new("L", (N, N), 0)
         d = ImageDraw.Draw(m)
-        for _ in range(14):
-            px, py = cx + rng.normal(0, 16), cy + rng.normal(0, 16)
-            r = rng.uniform(2.5, 5) * K
+        for _ in range(16):
+            px, py = cx + rng.normal(0, 15), cy + rng.normal(0, 15)
+            r = rng.uniform(2.2, 4.5) * K
             d.ellipse((px * K - r, py * K - r, px * K + r, py * K + r), fill=255)
         img = over(img, solid(c), np.asarray(m.filter(ImageFilter.GaussianBlur(0.5 * K)), np.float32) / 255)
-    # tira de papel para los datos (con sombra) y trozo de cinta adhesiva para la fecha
-    for (x0, y0, x1, y1), seed, col, sh in [((74, 252, 316, 300), 400, "#F4EEE2", 0.35), ((122, 58, 268, 86), 410, "#EFE6CC", 0.18)]:
-        shadow = rect_mask(x0 + 2, y0 + 3, x1 + 2, y1 + 3, seed, rough=2.5, soft=3)
-        img = img * (1 - sh * shadow)[..., None]
-        paper = mottle(linen(solid(col), 0.04, seed + 1), 0.04, seed + 2, 3)
-        img = over(img, paper, rect_mask(x0, y0, x1, y1, seed + 3, rough=3.0, soft=0.8) * (0.96 if seed == 400 else 0.88))
+    # 5) soportes de papel para los datos (encima de todo, con sombra)
+    for i, (name, spec) in enumerate(COLLAGE_HOLDERS.items()):
+        kind = spec[0]
+        geom = spec[1:4] if kind == "circle" else spec[1:5]
+        img = paper_piece(img, kind, geom, spec[-1], 700 + i * 10, 0.30 if name != "date" else 0.15)
     return to_image(vignette(img, 0.08))
 
 

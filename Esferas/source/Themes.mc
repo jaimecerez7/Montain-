@@ -19,6 +19,8 @@ class Themes {
     var fTimeM;
     var fData;
     var fLabel;
+    var fSmall;
+    var fMini;
     var bg = null;       // obra del estilo activo
     var grid = null;     // retícula estampada completa (Retícula)
     var glyphs as Array = [];   // cifras pintadas del estilo activo: 0-9 y ':' (índice 10)
@@ -26,11 +28,13 @@ class Themes {
     var sun = null;      // sol pintado (Cielo)
     var moonBmp = null;  // luna pintada en su fase (Cielo)
 
-    function initialize(time, timeM, data, label) {
-        fTime = time;
-        fTimeM = timeM;
-        fData = data;
-        fLabel = label;
+    function initialize(fonts as Array) {
+        fTime = fonts[0];
+        fTimeM = fonts[1];
+        fData = fonts[2];
+        fLabel = fonts[3];
+        fSmall = fonts[4];
+        fMini = fonts[5];
     }
 
     function resetCache() as Void {}
@@ -62,19 +66,38 @@ class Themes {
 
     // Fila de datos [icono, texto] centrada como un bloque, separada por aire (sin barras).
     function row(dc as Graphics.Dc, cx, y, items as Array, color, iconColor, bg2, ic) as Void {
-        var gap = Draw.p(7);
-        var sep = Draw.p(22);
+        rowF(dc, cx, y, items, [color, iconColor, bg2], ic, fData, false);
+    }
+
+    // Fila con fuente a elegir; compact = cifras pequeñas (fuente Small), icono centrado en la línea.
+    function rowF(dc as Graphics.Dc, cx, y, items as Array, colors as Array, ic, font, compact as Boolean) as Void {
+        var gap = Draw.p(compact ? 5 : 7);
+        var sep = Draw.p(compact ? 14 : 22);
         var s = Draw.p(ic);
         var w = -sep;
         for (var i = 0; i < items.size(); i++) {
-            w += s + gap + dc.getTextWidthInPixels(items[i][1], fData) + sep;
+            w += s + gap + dc.getTextWidthInPixels(items[i][1], font) + sep;
         }
         var x = cx - w / 2;
+        var dy = compact ? Draw.p(3) - (s - Draw.p(21 * 0.7)) / 2 : Draw.p(2);
         for (var i = 0; i < items.size(); i++) {
-            icon(dc, items[i][0], x, y - Draw.p(2), s, iconColor, bg2);
+            icon(dc, items[i][0], x, y - dy, s, colors[1], colors[2]);
             x += s + gap;
-            x += Draw.text(dc, x, y, items[i][1], fData, color, Graphics.TEXT_JUSTIFY_LEFT) + sep;
+            x += Draw.text(dc, x, y, items[i][1], font, colors[0], Graphics.TEXT_JUSTIFY_LEFT) + sep;
         }
+    }
+
+    function small(dc as Graphics.Dc, cx, y, items as Array, colors as Array, ic) as Void {
+        rowF(dc, cx, y, items, colors, ic, fSmall, true);
+    }
+
+    function moonImg(dc as Graphics.Dc, cx, cy) as Void {
+        var mb = moonBmp;
+        if (mb != null) { dc.drawBitmap(cx - mb.getWidth() / 2, cy - mb.getHeight() / 2, mb); }
+    }
+
+    function moonPct(d as FaceData) as String {
+        return Math.round(d.moonIllum * 100).toNumber().toString() + "%";
     }
 
     // Hora compuesta con las cifras pintadas de la obra (cada una con PAD px de margen).
@@ -126,17 +149,27 @@ class Themes {
     // Cada bloque de color es un dato: grafito = reloj, burdeos = tiempo, sangre de buey =
     // batería, melocotón = pasos, franja óxido = próximo amanecer/atardecer.
     function bloques(dc as Graphics.Dc, d as FaceData) as Void {
-        background(dc, 0x2D2F2D);
+        background(dc, 0x2B2C2A);
         var c = Graphics.TEXT_JUSTIFY_CENTER;
-        var cream = 0xF0E4D6;
-        var dark = 0x3A1E18;
-        row(dc, Draw.p(193), Draw.p(102), [[d.cond, d.temp]], cream, cream, 0x7A2C2E, 24);
-        row(dc, Draw.p(312), Draw.p(102), [[:battery, pct(d.battery)]], cream, cream, 0x4A161A, 22);
-        Draw.text(dc, Draw.p(250), Draw.p(166), d.date, fLabel, 0xB9B2A8, c);
-        glyphTime(dc, Draw.p(250), Draw.p(196), d.time, 2);
-        Draw.iconSteps(dc, Draw.p(58), Draw.p(186), Draw.p(24), dark);
-        Draw.text(dc, Draw.p(70), Draw.p(220), d.stepsText(), fData, dark, c);
-        row(dc, Draw.p(250), Draw.p(299), [sunItem(d)], cream, cream, 0xA3461C, 18);
+        var l = Graphics.TEXT_JUSTIFY_LEFT;
+        // Cada bloque es un dato, escrito en un tono derivado de su propio color.
+        var sp = d.date.find(" ");
+        var day = sp == null ? d.date : d.date.substring(0, sp);
+        var rest = sp == null ? "" : d.date.substring(sp + 1, d.date.length());
+        Draw.text(dc, Draw.p(72), Draw.p(88), day, fSmall, 0x5E201C, c);                         // salmón: fecha
+        Draw.text(dc, Draw.p(72), Draw.p(114), rest, fMini, 0x7E3329, c);
+        small(dc, Draw.p(190), Draw.p(86), [[d.cond, d.temp]], [0xF3D2C2, 0xF3D2C2, 0x7B2A2C], 20);   // burdeos: tiempo
+        Draw.text(dc, Draw.p(190), Draw.p(114), "LLUVIA " + d.precip, fMini, 0xD69A8A, c);
+        moonImg(dc, Draw.p(290), Draw.p(96));                                                     // sangre de buey: luna
+        Draw.text(dc, Draw.p(308), Draw.p(86), moonPct(d), fSmall, 0xE9BFB4, l);
+        Draw.text(dc, Draw.p(312), Draw.p(114), "LUNA", fMini, 0xB87A72, c);
+        Draw.iconSteps(dc, Draw.p(60), Draw.p(176), Draw.p(22), 0x6A2E22);                         // melocotón: pasos
+        Draw.text(dc, Draw.p(70), Draw.p(208), d.stepsText(), fData, 0x4A1F17, c);
+        Draw.text(dc, Draw.p(70), Draw.p(240), "PASOS", fMini, 0x8E4C3A, c);
+        glyphTime(dc, Draw.p(252), Draw.p(184), d.time, 3);                                        // grafito: hora
+        small(dc, Draw.p(80), Draw.p(300), [[:battery, pct(d.battery)]], [0xCFC5B5, 0xCFC5B5, 0x151513], 14);
+        small(dc, Draw.p(250), Draw.p(300), [[:sunrise, d.sunrise], [:sunset, d.sunset]],
+            [0xF6DDC8, 0xF6DDC8, 0xA9471B], 14);                                                   // óxido: sol
     }
 
     // ------------------------------------------------------------ RETÍCULA
@@ -176,14 +209,18 @@ class Themes {
     // La hora, en papeles de color recortados y pegados; los datos, en una tira de papel.
     function collage(dc as Graphics.Dc, d as FaceData) as Void {
         var ink = 0x24211E;
-        var soft = 0x857A6B;
-        var paper = 0xF4EEE2;
+        var soft = 0x6E6457;
         background(dc, 0xEFE5CF);
         var c = Graphics.TEXT_JUSTIFY_CENTER;
-        Draw.text(dc, Draw.p(195), Draw.p(66), d.date, fLabel, ink, c);
-        glyphTime(dc, Draw.p(195), Draw.p(112), d.time, -2);
-        row(dc, Draw.p(195), Draw.p(264), [[d.cond, d.temp], [:steps, d.stepsText()], [:battery, pct(d.battery)]],
-            ink, soft, paper, 20);
+        Draw.text(dc, Draw.p(195), Draw.p(64), d.date, fLabel, ink, c);                             // cinta: fecha
+        glyphTime(dc, Draw.p(195), Draw.p(104), d.time, -2);                                         // papel recortado
+        small(dc, Draw.p(104), Draw.p(258), [[d.cond, d.temp]], [ink, soft, 0xF5EFE3], 18);           // círculo crema
+        small(dc, Draw.p(104), Draw.p(284), [[:drop, d.precip]], [soft, soft, 0xF5EFE3], 14);
+        moonImg(dc, Draw.p(286), Draw.p(264));                                                       // círculo azul noche
+        Draw.text(dc, Draw.p(286), Draw.p(284), moonPct(d), fMini, 0xE9E2D2, c);
+        small(dc, Draw.p(195), Draw.p(258), [[:steps, d.stepsText()]], [ink, soft, 0xF2E7CF], 14);      // tira
+        small(dc, Draw.p(195), Draw.p(280), [[:battery, pct(d.battery)]], [soft, soft, 0xF2E7CF], 14);
+        small(dc, Draw.p(195), Draw.p(326), [[:sunrise, d.sunrise], [:sunset, d.sunset]], [ink, soft, 0xEBDDBA], 14);
     }
 
     // ------------------------------------------------------------ CIELO PINTADO
@@ -223,10 +260,7 @@ class Themes {
             }
         }
         // Luna en su fase
-        var mb = moonBmp;
-        if (mb != null) {
-            dc.drawBitmap(Draw.p(84) - mb.getWidth() / 2, Draw.p(176) - mb.getHeight() / 2, mb);
-        }
+        moonImg(dc, Draw.p(84), Draw.p(176));
         Draw.text(dc, Draw.p(102), Draw.p(170), Math.round(d.moonIllum * 100).toNumber().toString() + "%",
             fLabel, cream, Graphics.TEXT_JUSTIFY_LEFT);
         // Amanecer y atardecer en los extremos del arco

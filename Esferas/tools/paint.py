@@ -279,8 +279,8 @@ def grid_sprite(side):
 
 
 # ------------------------------------------------------------------ COLLAGE
-PALETTE = ["#D7372A", "#1E8A4B", "#EFA2A6", "#D8A126", "#5A8FD0", "#151413", "#F3EEE4", "#2A7E78",
-           "#E1631E", "#B9C6CB", "#8C2B2B"]   # vivos: tomate, verde, rosa, mostaza, cobalto, negro, blanco, petróleo, mandarina…
+PALETTE = ["#D8262A", "#1E9E4C", "#2E5FA8", "#6FA8DC", "#F2A1B0", "#C99A2E", "#F2C230", "#EE6A22",
+           "#151413", "#F6F2EA", "#0F6B3A", "#1F8F86"]   # rojo, verde, cobalto, cielo, rosa, ocre, mostaza, naranja, negro, blanco, verde hondo, turquesa
 LABEL = (56, 88, 334, 294)
 
 
@@ -320,60 +320,92 @@ def leaf(img, x, y, size, angle, color, seed):
     return ink_lines(img, [spline(vein, steps=20)], "#F3EEE4" if color != "#F3EEE4" else "#141312", 1.0, seed + 2)
 
 
+def painted_fill(color, seed):
+    """Relleno pintado a pincel: tono irregular y trazos cortos en una dirección al azar."""
+    rng = np.random.default_rng(seed)
+    horiz = rng.random() < 0.5
+    strokes = noise(14, 70, seed) if horiz else noise(70, 14, seed)
+    img = solid(color) * (1 + 0.10 * (fbm(4, seed + 1, 3) - 0.5)[..., None] * 2 + 0.07 * (strokes - 0.5)[..., None] * 2)
+    return linen(img, 0.06, seed + 2)
+
+
+def outline(img, pts, color, width, seed):
+    closed = list(pts) + [pts[0]]
+    return ink_lines(img, [closed[::2] if len(closed) > 60 else closed], color, width, seed)
+
+
+def dot_pattern(img, x0, y0, color, seed, cols=4, rows=3, step=9, r=2.4):
+    m = Image.new("L", (N, N), 0)
+    d = ImageDraw.Draw(m)
+    rng = np.random.default_rng(seed)
+    for a in range(rows):
+        for b in range(cols):
+            x, y = x0 + b * step + rng.normal(0, 0.6), y0 + a * step + rng.normal(0, 0.6)
+            rr = r * K * (0.85 + 0.3 * rng.random())
+            d.ellipse((x * K - rr, y * K - rr, x * K + rr, y * K + rr), fill=255)
+    return over(img, hexrgb(color), np.asarray(m.filter(ImageFilter.GaussianBlur(0.5 * K)), np.float32) / 255)
+
+
 def bg_collage(seed=91):
     rng = np.random.default_rng(seed)
-    img = linen(solid("#EFE5CF"), 0.06, seed)
-    # 1) grandes papeles de fondo
-    for i in range(70):
-        c = PALETTE[rng.integers(len(PALETTE))]
+    img = mottle(linen(solid("#E9D8B8"), 0.07, seed), 0.06, seed + 1, 4)
+    big = PALETTE[:8] + ["#0F6B3A", "#1F8F86"]
+    # 1) grandes formas pintadas (dominan la composición)
+    for i in range(34):
+        c = big[rng.integers(len(big))]
         x, y = rng.uniform(-40, 430), rng.uniform(-40, 430)
-        w, h = rng.uniform(50, 130), rng.uniform(30, 110)
-        a = rng.uniform(-0.6, 0.6)
-        pts = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]
-        if rng.random() < 0.5:
-            pts = spline([(px * rng.uniform(0.7, 1.15), py * rng.uniform(0.7, 1.15)) for px, py in pts], closed=True, steps=8)
+        w, h = rng.uniform(70, 150), rng.uniform(50, 120)
+        a = rng.uniform(-0.7, 0.7)
+        ctrl = [(-w / 2, -h / 2), (w / 2 * rng.uniform(0.6, 1.1), -h / 2), (w / 2, h / 2 * rng.uniform(0.5, 1.0)),
+                (-w / 2 * rng.uniform(0.5, 1.1), h / 2)]
+        pts = spline(ctrl, closed=True, steps=10) if rng.random() < 0.6 else ctrl
         rot = [(x + px * np.cos(a) - py * np.sin(a), y + px * np.sin(a) + py * np.cos(a)) for px, py in pts]
-        img = over(img, mottle(linen(solid(c), 0.10, 100 + i), 0.12, 500 + i, 5), poly_mask(rot, 0.5))
-    # 2) hojas, círculos con "ojo", rayas
-    for i in range(9):
-        img = leaf(img, rng.uniform(0, 390), rng.uniform(0, 390), rng.uniform(22, 40), rng.uniform(0, np.pi),
-                   ["#1E8A4B", "#2A7E78", "#151413"][i % 3], 600 + i)
+        img = over(img, painted_fill(c, 1000 * seed + i), poly_mask(rot, 0.6))
+        r = rng.random()
+        if r < 0.35:
+            img = outline(img, rot, "#151413", rng.uniform(2.5, 4.5), 2000 + i)        # contorno negro grueso
+        elif r < 0.55:
+            img = outline(img, rot, "#F6F2EA", rng.uniform(1.0, 1.6), 3000 + i)        # contorno de tiza blanca
+    # 2) formas medianas negras y blancas (contrapunto gráfico)
+    for i in range(10):
+        c = "#151413" if i % 2 == 0 else "#F6F2EA"
+        x, y, rr = rng.uniform(0, 390), rng.uniform(0, 390), rng.uniform(14, 30)
+        ctrl = [(x + np.cos(q) * rr * rng.uniform(0.7, 1.2), y + np.sin(q) * rr * rng.uniform(0.7, 1.2))
+                for q in np.linspace(0, 2 * np.pi, 7)[:-1]]
+        img = over(img, painted_fill(c, 4000 + i), poly_mask(spline(ctrl, closed=True, steps=8), 0.5))
+    # 3) hojas con nervio, ojos y puntos
+    for i in range(7):
+        img = leaf(img, rng.uniform(0, 390), rng.uniform(0, 390), rng.uniform(26, 44), rng.uniform(0, np.pi),
+                   ["#1E9E4C", "#0F6B3A", "#151413", "#1F8F86"][i % 4], 600 + i)
     for i in range(5):
-        cx, cy, r = rng.uniform(20, 370), rng.uniform(20, 370), rng.uniform(12, 22)
+        cx, cy, r = rng.uniform(20, 370), rng.uniform(20, 370), rng.uniform(12, 20)
         ring = [(cx + np.cos(q) * r, cy + np.sin(q) * r) for q in np.linspace(0, 2 * np.pi, 40)[:-1]]
-        img = over(img, solid(["#F3EEE4", "#D8A126", "#EFA2A6"][i % 3]), poly_mask(ring, 0.5))
-        pupil = [(cx + np.cos(q) * r * 0.45, cy + np.sin(q) * r * 0.45) for q in np.linspace(0, 2 * np.pi, 30)[:-1]]
+        img = over(img, solid(["#F6F2EA", "#F2C230", "#F2A1B0"][i % 3]), poly_mask(ring, 0.5))
+        img = outline(img, ring, "#151413", 2.0, 5000 + i)
+        pupil = [(cx + np.cos(q) * r * 0.42, cy + np.sin(q) * r * 0.42) for q in np.linspace(0, 2 * np.pi, 30)[:-1]]
         img = over(img, solid("#151413"), poly_mask(pupil, 0.5))
+    for i in range(6):
+        img = dot_pattern(img, rng.uniform(10, 340), rng.uniform(10, 350), ["#F6F2EA", "#151413", "#1E9E4C"][i % 3],
+                          6000 + i, cols=rng.integers(3, 6), rows=rng.integers(2, 4))
     for i in range(4):
         x0, y0 = rng.uniform(0, 340), rng.uniform(0, 360)
         for j in range(5):
             bar = [(x0 + j * 9, y0), (x0 + j * 9 + 4, y0), (x0 + j * 9 + 4, y0 + 34), (x0 + j * 9, y0 + 34)]
-            img = over(img, solid("#151413" if i % 2 else "#F3EEE4"), poly_mask(bar, 0.4))
-    # 3) tinta: trazos gruesos negros y líneas de tiza blancas
-    for i in range(22):
+            img = over(img, solid("#151413" if i % 2 else "#F6F2EA"), poly_mask(bar, 0.4))
+    # 4) dibujo libre: tinta negra gruesa y garabatos de tiza blanca
+    for i in range(18):
         pts = [(rng.uniform(-10, 400), rng.uniform(-10, 400))]
         for _ in range(rng.integers(3, 6)):
-            pts.append((pts[-1][0] + rng.normal(0, 50), pts[-1][1] + rng.normal(0, 50)))
-        black = i % 3 != 0
-        img = ink_lines(img, [spline(pts, steps=12)], "#141312" if black else "#F6F2EA",
-                        rng.uniform(4.0, 8.0) if (black and i % 4 == 1) else rng.uniform(1.0, 2.2), 300 + i)
-    # 4) racimos de puntos
-    for i in range(7):
-        cx, cy = rng.uniform(20, 370), rng.uniform(20, 370)
-        c = ["#F3EEE4", "#151413", "#D7372A", "#1E8A4B"][i % 4]
-        m = Image.new("L", (N, N), 0)
-        d = ImageDraw.Draw(m)
-        for _ in range(16):
-            px, py = cx + rng.normal(0, 15), cy + rng.normal(0, 15)
-            r = rng.uniform(2.2, 4.5) * K
-            d.ellipse((px * K - r, py * K - r, px * K + r, py * K + r), fill=255)
-        img = over(img, solid(c), np.asarray(m.filter(ImageFilter.GaussianBlur(0.5 * K)), np.float32) / 255)
+            pts.append((pts[-1][0] + rng.normal(0, 45), pts[-1][1] + rng.normal(0, 45)))
+        white = i % 2 == 0
+        img = ink_lines(img, [spline(pts, steps=12)], "#F6F2EA" if white else "#151413",
+                        rng.uniform(1.0, 1.8) if white else rng.uniform(2.5, 5.5), 300 + i)
     # 5) soportes de papel para los datos (encima de todo, con sombra)
     for i, (name, spec) in enumerate(COLLAGE_HOLDERS.items()):
         kind = spec[0]
         geom = spec[1:4] if kind == "circle" else spec[1:5]
         img = paper_piece(img, kind, geom, spec[-1], 700 + i * 10, 0.30 if name != "date" else 0.15)
-    return to_image(vignette(img, 0.08))
+    return to_image(vignette(img, 0.06))
 
 
 def ink_lines(img, paths, color, width, seed):

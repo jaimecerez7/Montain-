@@ -130,8 +130,8 @@ def stamped(ch, seed):
     return rgba(np.broadcast_to(rgb, (h, w, 3)), m)
 
 
-PAPERS = ["#D7372A", "#1E8A4B", "#3E7CC8", "#D8A126", "#E98FA0", "#2A7E78", "#E1631E", "#151413",
-          "#8C2B2B", "#5A8FD0", "#151413"]
+PAPERS = ["#D8262A", "#1E9E4C", "#2E5FA8", "#F2C230", "#F2A1B0", "#1F8F86", "#EE6A22", "#151413",
+          "#C99A2E", "#6FA8DC", "#151413"]
 
 
 def cutout(ch, seed):

@@ -1,0 +1,35 @@
+name: Actualizar cumbres offline (OpenStreetMap)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "HorizonteCimas/tools/fetch_peaks.py"
+      - ".github/workflows/datos-cimas.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  datos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Descargar cumbres de Segovia y Guadarrama
+        run: python3 -I HorizonteCimas/tools/fetch_peaks.py
+
+      - name: Resumen
+        run: |
+          python3 -c 'import json; s=json.load(open("HorizonteCimas/tools/data/peaks_summary.json")); print(s["count"], "cumbres ·", len(s["tiles"]), "teselas ·", s["source"]); [print(" ", p) for p in s["highest"]]'
+
+      - name: Guardar en el repositorio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add HorizonteCimas/resources/peaks HorizonteCimas/source/PeakTiles.mc HorizonteCimas/tools/data
+          if git diff --cached --quiet; then echo "Sin cambios en los datos"; exit 0; fi
+          git commit -m "Datos: cumbres offline de Segovia y Guadarrama (OpenStreetMap)"
+          git push origin HEAD:${{ github.ref_name }}

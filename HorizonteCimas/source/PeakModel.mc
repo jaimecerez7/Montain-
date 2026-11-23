@@ -35,6 +35,12 @@ class PeakModel {
     const SRC_ONLINE = 3;    // descarga de esta sesión
     const M_PER_DEG_LAT = 110540.0;
     const M_PER_DEG_LON = 111320.0;
+    // «Solo grandes»: cimas a menos de 600 m de la más alta visible, la más alta de cada
+    // sector de 3° y como mucho 24 (Peñalara, Siete Picos, Cabeza de Hierro… desde Segovia).
+    const BIG_MARGIN_M = 600.0;
+    const BIG_SPACING_DEG = 3.0;
+    const BIG_MAX = 24;
+    const NO_FIX_YET = "Esperando GPS…";
 
     // Instancias públicas de Overpass con datos mundiales. Se prueba la siguiente
     // si una falla (HTTP 406/429/5xx, tiempo agotado, respuesta inválida).
@@ -76,6 +82,8 @@ class PeakModel {
     var offlineLoadMs = 0;       // duración de la última carga
     var offlineLoads = 0;        // cargas desde el inicio
     var lastOnlineCode = null;   // último código HTTP o de error de la descarga online
+    var onlyBig = true;          // mostrar solo las cimas grandes (menú)
+    var usingSavedPos = false;   // posición recordada de la última sesión, a la espera del GPS
 
     function initialize() {
         try {
@@ -93,6 +101,8 @@ class PeakModel {
             if (peaks.size() > 0) { dataSource = SRC_CACHE; }
             var ep = Application.Storage.getValue("overpassEndpoint");
             if (ep instanceof Number && ep >= 0 && ep < endpoints.size()) { endpointIndex = ep; }
+            var ob = Application.Storage.getValue("onlyBig");
+            if (ob instanceof Boolean) { onlyBig = ob; }
         } catch (ex) {
             // El almacenamiento puede no estar disponible al iniciar.
         }
@@ -133,7 +143,46 @@ class PeakModel {
 
         var coords = info.position.toDegrees();
         if (coords[0] == 0 && coords[1] == 0) { return; }   // posición vacía del sistema
+        usingSavedPos = false;
+        if (precise) { rememberPosition(coords[0], coords[1]); }
         applyPosition(coords[0], coords[1], precise && info.altitude != null ? info.altitude : null, precise);
+    }
+
+    // Guarda la última posición buena (solo si se ha movido >1 km, para no gastar escrituras).
+    function rememberPosition(la, lo) as Void {
+        try {
+            var old = Application.Storage.getValue("lastPos");
+            if (old instanceof Array && old.size() == 2
+                && GeoMath.distance(la, lo, old[0], old[1]) < 1000) { return; }
+            Application.Storage.setValue("lastPos", [la, lo]);
+        } catch (ex) {}
+    }
+
+    // Al arrancar sin GPS (en casa, a cubierto): usar la última posición conocida de la app
+    // para que las cimas salgan al instante; el GPS la sustituye en cuanto llega.
+    function useSavedPosition() as Boolean {
+        if (lat != null) { return false; }
+        var pos = null;
+        try { pos = Application.Storage.getValue("lastPos"); } catch (ex) {}
+        if (!(pos instanceof Array) || pos.size() != 2) { return false; }
+        var la = parseNum(pos[0]);
+        var lo = parseNum(pos[1]);
+        if (la == null || lo == null) { return false; }
+        applyPosition(la, lo, null, false);
+        usingSavedPos = true;
+        return true;
+    }
+
+    // Menú «Recargar offline»: mensaje claro según el caso.
+    function reloadOffline() as Void {
+        if (lat == null && !useSavedPosition()) { status = NO_FIX_YET; return; }
+        if (!loadOffline()) { status = "Fuera de la zona offline"; }
+    }
+
+    function setOnlyBig(v as Boolean) as Void {
+        onlyBig = v;
+        try { Application.Storage.setValue("onlyBig", v); } catch (ex) {}
+        if (dataSource == SRC_OFFLINE && lat != null) { loadOffline(); }
     }
 
     // Separado de onPosition para poder probarlo sin GPS (pruebas de simulador offline).
@@ -166,7 +215,8 @@ class PeakModel {
 
         var st = status;
         if (localData && !fetching && st != null
-            && (st.equals(SEARCHING_GPS) || st.equals(WAIT_FIX) || st.equals(OUT_OF_ZONE))) {
+            && (st.equals(SEARCHING_GPS) || st.equals(WAIT_FIX) || st.equals(OUT_OF_ZONE)
+                || st.equals(NO_FIX_YET) || st.equals("Fuera de la zona offline"))) {
             status = null;   // avisos que ya no aplican al volver a la zona con datos
         }
         if (localData || fetching) { return; }
@@ -251,7 +301,7 @@ class PeakModel {
         offlineTiles = tiles;
         offlineCandidates = near.size() + far.size();
         offlineLoads++;
-        peaks = choosePeaks(near, far, lat, lon);
+        peaks = onlyBig ? chooseBig(near, far, lat, lon) : choosePeaks(near, far, lat, lon);
         dataLat = lat;
         dataLon = lon;
         dataSource = SRC_OFFLINE;
@@ -281,6 +331,41 @@ class PeakModel {
         sortCandidates(byBearing, true);   // ≤ 100 elementos
         var list = [] as Array<Array>;
         for (var i = 0; i < byBearing.size(); i++) { list.add(byBearing[i][1]); }
+        return list;
+    }
+
+    // Solo las grandes: de la más alta a la más baja (dentro de BIG_MARGIN_M de la cima más alta),
+    // descartando las que caen a menos de BIG_SPACING_DEG de rumbo de otra ya elegida.
+    function chooseBig(near as Array<Array>, far as Array<Array>, refLat, refLon) as Array<Array> {
+        var all = [] as Array<Array>;
+        var top = -1000.0;
+        for (var k = 0; k < 2; k++) {
+            var src = k == 0 ? near : far;
+            for (var i = 0; i < src.size(); i++) {
+                var p = src[i][1];
+                if (p[3] > top) { top = p[3]; }
+                all.add([p[3], p]);
+            }
+        }
+        var minEle = top - BIG_MARGIN_M;
+        var cand = [] as Array<Array>;
+        for (var i = 0; i < all.size(); i++) { if (all[i][0] >= minEle) { cand.add(all[i]); } }
+        cand = bucketOrder(cand, minEle, top + 1.0, 30, false);
+        var kept = [] as Array<Array>;   // [rumbo, cima]
+        for (var i = 0; i < cand.size() && kept.size() < BIG_MAX; i++) {
+            var p = cand[i][1];
+            var b = GeoMath.bearing(refLat, refLon, p[1], p[2]);
+            var free = true;
+            for (var j = 0; j < kept.size(); j++) {
+                var dd = (b - kept[j][0]).abs();
+                if (dd > 180) { dd = 360 - dd; }
+                if (dd < BIG_SPACING_DEG) { free = false; break; }
+            }
+            if (free) { kept.add([b, p]); }
+        }
+        sortCandidates(kept, true);
+        var list = [] as Array<Array>;
+        for (var i = 0; i < kept.size(); i++) { list.add(kept[i][1]); }
         return list;
     }
 
@@ -486,7 +571,7 @@ class PeakModel {
         }
 
         // Guardar ordenadas por rumbo: al moverse el orden apenas cambia.
-        peaks = choosePeaks(near, far, requestLat, requestLon);
+        peaks = onlyBig ? chooseBig(near, far, requestLat, requestLon) : choosePeaks(near, far, requestLat, requestLon);
         dataSource = SRC_ONLINE;
         dataLat = requestLat;
         dataLon = requestLon;

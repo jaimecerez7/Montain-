@@ -34,6 +34,8 @@ class HorizonteCimasDelegate extends WatchUi.BehaviorDelegate {
         menu.addItem(new WatchUi.MenuItem("Reactivar brújula", null, :compass, null));
         menu.addItem(new WatchUi.MenuItem("Actualizar online", "Opcional", :online, null));
         menu.addItem(new WatchUi.MenuItem("Recargar offline", "Segovia y Guadarrama", :offline, null));
+        menu.addItem(new WatchUi.MenuItem(model.onlyBig ? "Ver todas las cimas" : "Solo las grandes",
+            model.onlyBig ? "Ahora: solo grandes" : "Ahora: todas", :big, null));
         menu.addItem(new WatchUi.MenuItem("Diagnóstico", null, :diag, null));
         WatchUi.pushView(menu, new HorizonteCimasMenuDelegate(model), WatchUi.SLIDE_UP);
         return true;
@@ -69,7 +71,9 @@ class HorizonteCimasMenuDelegate extends WatchUi.Menu2InputDelegate {
         } else if (id == :online) {
             model.forceFetch();
         } else if (id == :offline) {
-            if (!model.loadOffline()) { model.status = "Fuera de la zona offline"; }
+            model.reloadOffline();
+        } else if (id == :big) {
+            model.setOnlyBig(!model.onlyBig);
         }
         WatchUi.popView(WatchUi.SLIDE_DOWN);
         WatchUi.requestUpdate();

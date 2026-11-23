@@ -1,3 +1,4 @@
+import Toybox.Application;
 import Toybox.Lang;
 import Toybox.Test;
 
@@ -154,7 +155,7 @@ function offlineLoadCercedilla(logger as Test.Logger) as Boolean {
         + model.offlineCandidates + " candidatas, " + model.offlineLoadMs + " ms");
     Test.assert(model.dataSource == 1);
     Test.assert(model.localData);
-    Test.assert(model.peaks.size() >= 20 && model.peaks.size() <= 100);
+    Test.assert(model.peaks.size() >= 12 && model.peaks.size() <= model.BIG_MAX);   // solo grandes
     Test.assert(model.geom.size() > 0);
     // Peñalara (2428 m) está a ~15 km al NNE de Cercedilla.
     var pen = findPeak(model, "Peñalara");
@@ -218,5 +219,57 @@ function offlineSelectionOrder(logger as Test.Logger) as Boolean {
     for (var i = 0; i < list.size(); i++) { names += list[i][0] + ","; }
     Test.assert(names.find("lejana alta") != null);   // una lejana relevante entra antes que cercanas sobrantes
     Test.assert(names.find("c119,") != null);          // la más cercana siempre entra
+    return true;
+}
+
+(:test :typecheck(false))
+function offlineSegoviaBigPeaks(logger as Test.Logger) as Boolean {
+    // Desde Segovia ciudad: solo las grandes de Guadarrama, sin los cerros de al lado.
+    var model = new PeakModel();
+    model.onlyBig = true;
+    model.lat = 40.9481;
+    model.lon = -4.1184;
+    model.altitudeOk = true;
+    model.alt = 1000.0;
+    Test.assert(model.loadOffline());
+    var names = "";
+    for (var i = 0; i < model.peaks.size(); i++) { names += model.peaks[i][0] + ","; }
+    logger.debug("Segovia: " + model.peaks.size() + " cimas: " + names);
+    Test.assert(model.peaks.size() >= 12 && model.peaks.size() <= model.BIG_MAX);
+    Test.assert(names.find("Peñalara") != null);
+    Test.assert(names.find("Siete Picos") != null);
+    Test.assert(names.find("Montón de Trigo") != null);
+    Test.assert(names.find("Cabeza de Hierro Mayor") != null);
+    Test.assert(names.find("Cerro Torralbo") == null);   // 1049 m, a 3 km: no es «grande»
+    var pen = findPeak(model, "Peñalara");
+    Test.assert(pen != null);
+    if (pen != null) {
+        logger.debug("Peñalara desde Segovia: " + (pen[2] / 1000).toNumber() + " km, rumbo " + pen[0].toNumber() + "°");
+        Test.assert(pen[0] > 115 && pen[0] < 140);   // al SE
+    }
+    // Con «todas las cimas» vuelven las pequeñas.
+    model.setOnlyBig(false);
+    Test.assert(model.peaks.size() > 50);
+    return true;
+}
+
+(:test :typecheck(false))
+function savedPositionWithoutGps(logger as Test.Logger) as Boolean {
+    // Arranque en casa sin GPS: usa la última posición guardada y carga offline.
+    Application.Storage.setValue("lastPos", [40.9481, -4.1184]);
+    var model = new PeakModel();
+    model.lat = null;
+    model.peaks = [];
+    model.dataLat = null;
+    model.dataSource = 0;
+    Test.assert(model.useSavedPosition());
+    Test.assert(model.usingSavedPos);
+    Test.assert(model.dataSource == 1);
+    Test.assert(model.peaks.size() > 0);
+    Test.assert(!model.fetching);
+    Application.Storage.deleteValue("lastPos");
+    var m2 = new PeakModel();
+    m2.reloadOffline();
+    Test.assert(m2.status.equals(m2.NO_FIX_YET));       // sin GPS ni posición: no dice «fuera de zona»
     return true;
 }

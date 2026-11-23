@@ -11,6 +11,10 @@ La app incluye **las cumbres principales de OpenStreetMap** de la provincia de S
 
 Los parámetros están al principio de `tools/fetch_peaks.py`.
 
+**Solo las grandes (por defecto).** En pantalla salen como mucho 24 cimas: las que están a menos de 600 m de la más alta a la vista, y de cada sector de 3° solo la más alta. Desde Segovia ciudad se ven Peñalara, Siete Picos, Montón de Trigo, La Pinareja, Cabeza de Hierro, Bola del Mundo, Valdemartín… y no los cerros de al lado. En el menú, **«Ver todas las cimas»** vuelve a la lista completa.
+
+**Sin GPS (en casa, a cubierto).** La app recuerda la última posición buena y la usa al abrir, hasta que llega el GPS. Si no hay ninguna, «Recargar offline» dice «Esperando GPS…», no «fuera de zona».
+
 - **Al abrir la app**, la primera posición (aunque sea la última conocida) basta para mostrar las cimas. **No hace falta Internet ni móvil.**
 - **Empaquetado:** recursos JSON de Connect IQ (`resources/peaks/`) en teselas de 0,5° × 0,5°. Cada tesela son dos cadenas: los nombres seguidos y registros de ancho fijo de 21 caracteres (latitud, longitud, elevación y posición del nombre). Son tipos triviales para el compilador y crean muy pocos objetos en el reloj: solo se generan los nombres de las cimas elegidas.
 - **Carga (optimizada para el FR165):**

@@ -29,12 +29,12 @@ class DiagnosticView extends WatchUi.View {
         out.add("Fuente: " + src);
         out.add("Base: " + PeakTiles.COUNT + " cimas · " + PeakTiles.VERSION);
         out.add("Zona offline: " + (m.inCoverage(m.lat, m.lon) ? "sí" : (m.lat == null ? "?" : "no")));
-        out.add("En memoria: " + m.peaks.size() + " · visibles " + m.geom.size());
+        out.add("En memoria: " + m.peaks.size() + " · visibles " + m.geom.size() + (m.onlyBig ? " · grandes" : " · todas"));
         out.add("Carga: " + m.offlineTiles + " teselas · " + m.offlineCandidates + " cand. · " + m.offlineLoadMs + " ms");
         if (m.lat == null) {
             out.add("GPS: sin posición");
         } else {
-            out.add("GPS: " + (m.fixOk ? "fijo" : "aproximado") + " " + m.lat.format("%.4f") + ", " + m.lon.format("%.4f"));
+            out.add("GPS: " + (m.fixOk ? "fijo" : (m.usingSavedPos ? "recordado" : "aproximado")) + " " + m.lat.format("%.4f") + ", " + m.lon.format("%.4f"));
         }
         out.add("Altitud: " + (m.altitudeOk ? m.alt.toNumber().toString() + " m" : "sin dato"));
         out.add("Rumbo: " + (m.useCompass ? "brújula" : "manual") + " " + m.lastHeading.toNumber() + "°");

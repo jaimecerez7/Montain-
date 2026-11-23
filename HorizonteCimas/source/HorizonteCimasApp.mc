@@ -12,7 +12,8 @@ class HorizonteCimasApp extends Application.AppBase {
     }
 
     function onStart(state as Dictionary?) as Void {
-        model.onPosition(Position.getInfo());   // última posición conocida
+        model.onPosition(Position.getInfo());   // última posición conocida del reloj
+        model.useSavedPosition();               // si no hay ninguna: la última de la app
         Position.enableLocationEvents(Position.LOCATION_CONTINUOUS, method(:onPosition));
     }
 

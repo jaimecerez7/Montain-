@@ -32,6 +32,7 @@ class HorizonteCimasDelegate extends WatchUi.BehaviorDelegate {
     function onMenu() as Boolean {
         var menu = new WatchUi.Menu2({:title => "Horizonte Cimas"});
         menu.addItem(new WatchUi.MenuItem("Reactivar brújula", null, :compass, null));
+        menu.addItem(new WatchUi.MenuItem("Estoy en…", "Sin GPS: elige el lugar", :place, null));
         menu.addItem(new WatchUi.MenuItem("Actualizar online", "Opcional", :online, null));
         menu.addItem(new WatchUi.MenuItem("Recargar offline", "Segovia y Guadarrama", :offline, null));
         menu.addItem(new WatchUi.MenuItem(model.onlyBig ? "Ver todas las cimas" : "Solo las grandes",
@@ -66,6 +67,14 @@ class HorizonteCimasMenuDelegate extends WatchUi.Menu2InputDelegate {
             WatchUi.switchToView(new DiagnosticView(model), new DiagnosticDelegate(), WatchUi.SLIDE_LEFT);
             return;
         }
+        if (id == :place) {
+            var pm = new WatchUi.Menu2({:title => "Estoy en…"});
+            for (var i = 0; i < model.PLACES.size(); i++) {
+                pm.addItem(new WatchUi.MenuItem(model.PLACES[i][0], null, i, null));
+            }
+            WatchUi.switchToView(pm, new PlaceMenuDelegate(model), WatchUi.SLIDE_LEFT);
+            return;
+        }
         if (id == :compass) {
             model.useCompass = true;
         } else if (id == :online) {
@@ -76,6 +85,22 @@ class HorizonteCimasMenuDelegate extends WatchUi.Menu2InputDelegate {
             model.setOnlyBig(!model.onlyBig);
         }
         WatchUi.popView(WatchUi.SLIDE_DOWN);
+        WatchUi.requestUpdate();
+    }
+}
+
+(:typecheck(false))
+class PlaceMenuDelegate extends WatchUi.Menu2InputDelegate {
+    var model;
+
+    function initialize(m) {
+        Menu2InputDelegate.initialize();
+        model = m;
+    }
+
+    function onSelect(item as WatchUi.MenuItem) as Void {
+        model.usePlace(item.getId());
+        WatchUi.popView(WatchUi.SLIDE_RIGHT);
         WatchUi.requestUpdate();
     }
 }

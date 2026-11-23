@@ -34,7 +34,7 @@ class DiagnosticView extends WatchUi.View {
         if (m.lat == null) {
             out.add("GPS: sin posición");
         } else {
-            out.add("GPS: " + (m.fixOk ? "fijo" : (m.usingSavedPos ? "recordado" : "aproximado")) + " " + m.lat.format("%.4f") + ", " + m.lon.format("%.4f"));
+            out.add("GPS: " + (m.fixOk ? "fijo" : (m.usingSavedPos ? m.posSource : "aproximado")) + " " + m.lat.format("%.4f") + ", " + m.lon.format("%.4f"));
         }
         out.add("Altitud: " + (m.altitudeOk ? m.alt.toNumber().toString() + " m" : "sin dato"));
         out.add("Rumbo: " + (m.useCompass ? "brújula" : "manual") + " " + m.lastHeading.toNumber() + "°");

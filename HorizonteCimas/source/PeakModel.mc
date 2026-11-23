@@ -4,6 +4,7 @@ import Toybox.Lang;
 import Toybox.Position;
 import Toybox.System;
 import Toybox.WatchUi;
+import Toybox.Weather;
 
 // Datos OSM, caché local y geometría precalculada para que el dibujo sea ligero.
 // peaks: [nombre, latitud, longitud, elevacion_m]   (ordenadas por rumbo desde la descarga)
@@ -25,7 +26,7 @@ class PeakModel {
     const OCCLUSION_WINDOW_DEG = 10.0;
     const OCCLUSION_MARGIN_DEG = 0.05;
     const OCCLUSION_MIN_GAP_M = 300;
-    const SEARCHING_GPS = "Buscando señal GPS…";
+    const SEARCHING_GPS = "Buscando GPS · al aire libre";
     const WAIT_FIX = "Esperando GPS preciso…";
     const OUT_OF_ZONE = "Cimas fuera de zona";
     // Origen de las cimas en memoria
@@ -83,7 +84,21 @@ class PeakModel {
     var offlineLoads = 0;        // cargas desde el inicio
     var lastOnlineCode = null;   // último código HTTP o de error de la descarga online
     var onlyBig = true;          // mostrar solo las cimas grandes (menú)
-    var usingSavedPos = false;   // posición recordada de la última sesión, a la espera del GPS
+    var usingSavedPos = false;   // posición provisional (recordada, del móvil o elegida), a la espera del GPS
+    var posSource = "";          // de dónde viene la posición provisional (diagnóstico)
+
+    // Lugares para elegir a mano cuando no hay GPS: [nombre, lat, lon, altitud]
+    const PLACES = [
+        ["Segovia", 40.9481, -4.1184, 1000],
+        ["La Granja (San Ildefonso)", 40.9006, -4.0049, 1190],
+        ["El Espinar", 40.7189, -4.2486, 1190],
+        ["Cercedilla", 40.7417, -4.0567, 1190],
+        ["Navacerrada (puerto)", 40.7856, -4.0042, 1860],
+        ["Rascafría", 40.9031, -3.8803, 1160],
+        ["Guadarrama", 40.6722, -4.0889, 980],
+        ["Ávila", 40.6565, -4.6818, 1130],
+        ["Madrid", 40.4168, -3.7038, 650]
+    ];
 
     function initialize() {
         try {
@@ -170,12 +185,43 @@ class PeakModel {
         if (la == null || lo == null) { return false; }
         applyPosition(la, lo, null, false);
         usingSavedPos = true;
+        posSource = "última sesión";
         return true;
+    }
+
+    // Sin GPS ni posición guardada: la ubicación del tiempo que manda el móvil (sirve a cubierto).
+    function useWeatherPosition() as Boolean {
+        if (lat != null) { return false; }
+        var la = null;
+        var lo = null;
+        try {
+            var c = Weather.getCurrentConditions();
+            if (c != null && c.observationLocationPosition != null) {
+                var d = c.observationLocationPosition.toDegrees();
+                la = d[0];
+                lo = d[1];
+            }
+        } catch (ex) {}
+        if (la == null || lo == null || (la == 0 && lo == 0)) { return false; }
+        applyPosition(la, lo, null, false);
+        usingSavedPos = true;
+        posSource = "móvil (tiempo)";
+        return true;
+    }
+
+    // Lugar elegido en el menú: se usa hasta que llega un fijo GPS real.
+    function usePlace(i as Number) as Void {
+        var pl = PLACES[i];
+        fixOk = false;
+        applyPosition(pl[1], pl[2], pl[3].toFloat(), false);
+        usingSavedPos = true;
+        posSource = pl[0];
+        if (!inCoverage(lat, lon)) { status = OUT_OF_ZONE; }
     }
 
     // Menú «Recargar offline»: mensaje claro según el caso.
     function reloadOffline() as Void {
-        if (lat == null && !useSavedPosition()) { status = NO_FIX_YET; return; }
+        if (lat == null && !useSavedPosition() && !useWeatherPosition()) { status = NO_FIX_YET; return; }
         if (!loadOffline()) { status = "Fuera de la zona offline"; }
     }
 

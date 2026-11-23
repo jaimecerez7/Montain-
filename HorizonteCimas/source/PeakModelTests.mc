@@ -273,3 +273,20 @@ function savedPositionWithoutGps(logger as Test.Logger) as Boolean {
     Test.assert(m2.status.equals(m2.NO_FIX_YET));       // sin GPS ni posición: no dice «fuera de zona»
     return true;
 }
+
+(:test :typecheck(false))
+function manualPlace(logger as Test.Logger) as Boolean {
+    // Sin GPS: elegir «Segovia» en el menú carga las cimas grandes al instante.
+    var model = new PeakModel();
+    model.lat = null;
+    model.peaks = [];
+    model.dataLat = null;
+    model.dataSource = 0;
+    model.usePlace(0);
+    Test.assert(model.lat != null);
+    Test.assert(model.localData);
+    Test.assert(model.dataSource == 1);
+    Test.assert(model.altitudeOk);
+    Test.assert(findPeak(model, "Peñalara") != null);
+    return true;
+}

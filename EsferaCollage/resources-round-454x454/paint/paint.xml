@@ -1,0 +1,13 @@
+<drawables>
+    <bitmap id="BgCollage" filename="bg_collage.png" packingFormat="jpg"/>
+    <bitmap id="BgCollage2" filename="bg_collage2.png" packingFormat="jpg"/>
+    <bitmap id="BgCollage3" filename="bg_collage3.png" packingFormat="jpg"/>
+    <bitmap id="Moon0" filename="moon0.png"/>
+    <bitmap id="Moon1" filename="moon1.png"/>
+    <bitmap id="Moon2" filename="moon2.png"/>
+    <bitmap id="Moon3" filename="moon3.png"/>
+    <bitmap id="Moon4" filename="moon4.png"/>
+    <bitmap id="Moon5" filename="moon5.png"/>
+    <bitmap id="Moon6" filename="moon6.png"/>
+    <bitmap id="Moon7" filename="moon7.png"/>
+</drawables>

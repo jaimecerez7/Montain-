@@ -1,0 +1,13 @@
+<drawables>
+    <bitmap id="GlyphCo0" filename="gco0.png"/>
+    <bitmap id="GlyphCo1" filename="gco1.png"/>
+    <bitmap id="GlyphCo2" filename="gco2.png"/>
+    <bitmap id="GlyphCo3" filename="gco3.png"/>
+    <bitmap id="GlyphCo4" filename="gco4.png"/>
+    <bitmap id="GlyphCo5" filename="gco5.png"/>
+    <bitmap id="GlyphCo6" filename="gco6.png"/>
+    <bitmap id="GlyphCo7" filename="gco7.png"/>
+    <bitmap id="GlyphCo8" filename="gco8.png"/>
+    <bitmap id="GlyphCo9" filename="gco9.png"/>
+    <bitmap id="GlyphCo10" filename="gco10.png"/>
+</drawables>

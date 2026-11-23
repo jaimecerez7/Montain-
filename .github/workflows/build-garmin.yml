@@ -7,6 +7,7 @@ on:
       - "RadarVuelos/**"
       - "Esferas/**"
       - "EsferaOleo/**"
+      - "EsferaCollage/**"
       - ".github/workflows/build-garmin.yml"
   workflow_dispatch:
 
@@ -19,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [HorizonteCimas, RadarVuelos, Esferas, EsferaOleo]
+        app: [HorizonteCimas, RadarVuelos, Esferas, EsferaOleo, EsferaCollage]
     env:
       APP_DIR: ${{ matrix.app }}
       JAVA_TOOL_OPTIONS: -Xmx6g
